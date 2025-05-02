@@ -80,6 +80,7 @@ class Boltz1(LightningModule):
         super().__init__()
 
         self.save_hyperparameters()
+        self.custom_noise = None # for zero order sampling
 
         self.lddt = nn.ModuleDict()
         self.disto_lddt = nn.ModuleDict()
@@ -266,6 +267,7 @@ class Boltz1(LightningModule):
         multiplicity_diffusion_train: int = 1,
         diffusion_samples: int = 1,
         run_confidence_sequentially: bool = False,
+        custom_noise: Optional[torch.Tensor] = None,
     ) -> dict[str, Tensor]:
         dict_out = {}
 
@@ -348,6 +350,7 @@ class Boltz1(LightningModule):
                     multiplicity=diffusion_samples,
                     train_accumulate_token_repr=self.training,
                     steering_args=self.steering_args,
+                    custom_noise=custom_noise,
                 )
             )
 
@@ -1132,6 +1135,7 @@ class Boltz1(LightningModule):
                 num_sampling_steps=self.predict_args["sampling_steps"],
                 diffusion_samples=self.predict_args["diffusion_samples"],
                 run_confidence_sequentially=True,
+                custom_noise= self.custom_noise,
             )
             pred_dict = {"exception": False}
             pred_dict["masks"] = batch["atom_pad_mask"]

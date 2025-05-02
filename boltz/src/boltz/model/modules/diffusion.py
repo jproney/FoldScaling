@@ -452,6 +452,7 @@ class AtomDiffusion(Module):
         multiplicity=1,
         train_accumulate_token_repr=False,
         steering_args=None,
+        custom_noise=None,
         **network_condition_kwargs,
     ):
         potentials = get_potentials()
@@ -480,7 +481,10 @@ class AtomDiffusion(Module):
 
         # atom position is noise at the beginning
         init_sigma = sigmas[0]
-        atom_coords = init_sigma * torch.randn(shape, device=self.device)
+        if custom_noise is not None:
+            atom_coords = custom_noise
+        else:
+            atom_coords = init_sigma * torch.randn(shape, device=self.device)
         atom_coords_denoised = None
         model_cache = {} if self.use_inference_model_cache else None
 
