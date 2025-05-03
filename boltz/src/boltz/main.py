@@ -7,6 +7,8 @@ from typing import Literal, Optional
 
 import click
 import torch
+import numpy as np
+import torch.nn.functional as F
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.utilities import rank_zero_only
@@ -219,6 +221,50 @@ def check_inputs(
         click.echo(msg)
 
     return data
+
+def generate_neighbors(x, threshold=0.95, num_neighbors=4):
+    """Courtesy: Willis Ma"""
+    rng = np.random.Generator(np.random.PCG64())
+    x_f = x.flatten(1)
+    x_norm = torch.linalg.norm(x_f, dim=-1, keepdim=True, dtype=torch.float64).unsqueeze(-2)
+    u = x_f.unsqueeze(-2) / x_norm.clamp_min(1e-12)
+    v = torch.from_numpy(rng.standard_normal(size=(u.shape[0], num_neighbors, u.shape[-1]), dtype=np.float64)).to(
+        u.device
+    )
+    w = F.normalize(v - (v @ u.transpose(-2, -1)) * u, dim=-1)
+    return (
+        (x_norm * (threshold * u + np.sqrt(1 - threshold**2) * w))
+        .reshape(x.shape[0], num_neighbors, *x.shape[1:])
+        .to(x.dtype)
+    )
+
+def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
+    B, M, C = base_noise.shape
+    flattened_dim = M * C
+
+    # Flatten the base noise to (B, M*C)
+    base_flat = base_noise.view(B, flattened_dim)  # [B, D], D=M*C
+
+    # Generate random Gaussian noise
+    random_noise = torch.randn(num_neighbors, B, flattened_dim, device=base_noise.device)
+
+    # Project onto sphere defined by cosine similarity threshold
+    base_norm = F.normalize(base_flat, dim=-1)  # [B, D]
+
+    neighbors = []
+    for i in range(num_neighbors):
+        random_noise = torch.randn(B, flattened_dim, device=base_noise.device)
+
+        proj = (random_noise * base_norm).sum(dim=-1, keepdim=True) * base_norm
+        noise_orthogonal = random_noise - proj
+        noise_orthogonal_normed = F.normalize(noise_orthogonal, dim=-1)
+
+        neighbor_flat = threshold * base_norm + torch.sqrt(torch.tensor(1 - threshold**2, device=base_noise.device)) * noise_orthogonal_normed
+        neighbor_flat_scaled = neighbor_flat * base_flat.norm(dim=-1, keepdim=True)
+
+        neighbor = neighbor_flat_scaled.view(B, M, C)
+        neighbors.append(neighbor)
+    return torch.stack(neighbors)
 
 
 def compute_msa(
@@ -875,6 +921,9 @@ def predict(
     type=int,
     default=8,
 )
+
+
+
 def zero_order_sampling(
     data: str,
     out_dir: str,
@@ -1028,35 +1077,56 @@ def zero_order_sampling(
     best_score = -float("inf")
     best_out = None
 
-    num_iterations = 5
-    perturbations_per_iter = 5
-    step_size = 0.1  # α
+    num_iterations = 10
+    perturbations_per_iter = 4
+    threshold = 0.95
 
     for iteration in tqdm(range(num_iterations), desc="Zero-order optimization"):
-        top_perturbation = None
+        print(f"\n--- Starting Iteration {iteration} ---")
+        top_candidate_noise = None
         top_score = -float("inf")
 
-        inner_iter = tqdm(range(perturbations_per_iter), desc=f"Iteration {iteration}", leave=False)
-        for _ in inner_iter:
-            perturbation = torch.randn_like(base_noise)
-            candidate_noise = base_noise + step_size * perturbation
+        neighbors = generate_protein_neighbors(
+            base_noise, threshold=threshold, num_neighbors=perturbations_per_iter
+        )
 
+        previous_best_score = best_score  # Track the previous best score explicitly
+
+        inner_iter = tqdm(range(perturbations_per_iter), desc=f"Iteration {iteration}", leave=False)
+        for i in inner_iter:
+            candidate_noise = neighbors[i]
+
+            # Set custom noise
             model_module.custom_noise = candidate_noise
             out = model_module.predict_step(batch, batch_idx=0)
             score = out["plddt"].mean().item()
 
-            inner_iter.set_postfix(PLDDT=f"{score:.3f}")
+            inner_iter.set_postfix(PLDDT=f"{score:.3f}", refresh=True)
 
+            # Find best candidate this iteration
             if score > top_score:
                 top_score = score
-                top_perturbation = perturbation
+                top_candidate_noise = candidate_noise
 
+            # Track global best result
             if score > best_score:
                 best_score = score
                 best_out = out
 
-        base_noise = base_noise + step_size * top_perturbation
+        print(f"Iteration {iteration} summary:")
+        print(f" - Best score this iteration: {top_score:.4f}")
+        print(f" - Previous global best score: {previous_best_score:.4f}")
 
+        # Check for improvement compared to previous global best
+        if top_score > previous_best_score:
+            base_noise = top_candidate_noise
+            print(f"Iteration {iteration}: Improvement found, updating base noise.")
+        else:
+            base_noise = torch.randn(noise_shape, device=atom_mask.device)
+            print(f"Iteration {iteration}: No improvement, regenerating base noise.")
+
+    # Final summary
+    print("\nFinal best PLDDT score:", best_score)
     writer = BoltzWriter(
         data_dir=processed.targets_dir,
         output_dir=out_dir / "predictions",
@@ -1070,6 +1140,147 @@ def zero_order_sampling(
     )
     print("Best PLDDT score:", best_score)
 
+@cli.command()
+@click.argument("data", type=click.Path(exists=True))
+@click.option(
+    "--out_dir",
+    type=click.Path(exists=False),
+    help="Path to save predictions.",
+    default="./",
+)
+@click.option("--cache", default=get_cache_path, help="Cache directory.")
+@click.option("--checkpoint", default=None, help="Optional checkpoint path.")
+@click.option("--devices", default=1, help="Number of devices to use.")
+@click.option("--accelerator", default="gpu", type=click.Choice(["gpu", "cpu", "tpu"]))
+@click.option("--sampling_steps", default=200, help="Sampling steps.")
+@click.option("--step_scale", default=1.638, help="Step size scale.")
+@click.option("--num_workers", default=2, help="Dataloader workers.")
+@click.option("--seed", default=None, type=int, help="Random seed.")
+@click.option("--use_msa_server", is_flag=True, help="Use MMSeqs2 server for MSA generation.")
+@click.option("--num_random_samples", default=10, help="Number of random samples.")
+def random_sampling(
+    data: str,
+    out_dir: str,
+    cache: str,
+    checkpoint: Optional[str],
+    devices: int,
+    accelerator: str,
+    sampling_steps: int,
+    step_scale: float,
+    num_workers: int,
+    seed: Optional[int],
+    use_msa_server: bool,
+    num_random_samples: int,
+) -> None:
+    """Run random sampling predictions with Boltz-1."""
+    torch.set_grad_enabled(False)
+    torch.set_float32_matmul_precision("highest")
+
+    if seed is not None:
+        seed_everything(seed)
+
+    cache = Path(cache).expanduser()
+    cache.mkdir(parents=True, exist_ok=True)
+
+    data = Path(data).expanduser()
+    out_dir = Path(out_dir).expanduser() / f"boltz_random_{data.stem}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    download(cache)
+
+    data = check_inputs(data, out_dir)
+    if not data:
+        click.echo("No predictions to run, exiting.")
+        return
+
+    ccd_path = cache / "ccd.pkl"
+    process_inputs(
+        data=data,
+        out_dir=out_dir,
+        ccd_path=ccd_path,
+        use_msa_server=use_msa_server,
+        msa_server_url="https://api.colabfold.com",
+        msa_pairing_strategy="greedy",
+    )
+
+    processed_dir = out_dir / "processed"
+    processed = BoltzProcessedInput(
+        manifest=Manifest.load(processed_dir / "manifest.json"),
+        targets_dir=processed_dir / "structures",
+        msa_dir=processed_dir / "msa",
+        constraints_dir=(processed_dir / "constraints")
+        if (processed_dir / "constraints").exists()
+        else None,
+    )
+
+    data_module = BoltzInferenceDataModule(
+        manifest=processed.manifest,
+        target_dir=processed.targets_dir,
+        msa_dir=processed.msa_dir,
+        num_workers=num_workers,
+        constraints_dir=processed.constraints_dir,
+    )
+
+    if checkpoint is None:
+        checkpoint = cache / "boltz1_conf.ckpt"
+
+    predict_args = {
+        "recycling_steps": 0,
+        "sampling_steps": sampling_steps,
+        "diffusion_samples": 1,
+        "write_confidence_summary": True,
+    }
+    diffusion_params = BoltzDiffusionParams(step_scale=step_scale)
+
+    model_module: Boltz1 = Boltz1.load_from_checkpoint(
+        checkpoint,
+        strict=True,
+        predict_args=predict_args,
+        map_location="cuda" if accelerator == "gpu" else "cpu",
+        diffusion_process_args=asdict(diffusion_params),
+        ema=False,
+        pairformer_args=asdict(PairformerArgs()),
+        msa_module_args=asdict(MSAModuleArgs()),
+        steering_args=asdict(BoltzSteeringParams()),
+    )
+    model_module.eval()
+
+    batch = next(iter(data_module.predict_dataloader()))
+    device = model_module.device
+    batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()}
+
+    atom_mask = batch["atom_pad_mask"]
+    noise_shape = (*atom_mask.shape, 3)
+
+    random_scores = []
+    best_score, best_out = -float("inf"), None
+
+    for i in tqdm(range(num_random_samples), desc="Random Sampling"):
+        random_noise = torch.randn(noise_shape, device=device)
+        model_module.custom_noise = random_noise
+        out = model_module.predict_step(batch, batch_idx=0)
+        score = out["ptm"].item()
+        # score = out["plddt"].mean().item()
+        random_scores.append(score)
+        click.echo(f"Sample {i+1}: PLDDT = {score:.4f}")
+
+        if score > best_score:
+            best_score = score
+            best_out = out
+
+    click.echo("\nRandom Sampling Summary:")
+    click.echo(f"Best PLDDT: {best_score:.4f}")
+    click.echo(f"Worst PLDDT: {min(random_scores):.4f}")
+    click.echo(f"Average PLDDT: {np.mean(random_scores):.4f}")
+
+    writer = BoltzWriter(
+        data_dir=processed.targets_dir,
+        output_dir=out_dir / "predictions",
+        output_format="mmcif",
+    )
+    writer.on_predict_batch_end([best_out], batch, 0, 0)
+
+    click.echo(f"Best structure written. PLDDT: {best_score:.4f}")
 
 if __name__ == "__main__":
     cli()
