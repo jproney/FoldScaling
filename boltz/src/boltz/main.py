@@ -1032,18 +1032,20 @@ def zero_order_sampling(
     perturbations_per_iter = 5
     step_size = 0.1  # α
 
-    for iteration in range(num_iterations):
+    for iteration in tqdm(range(num_iterations), desc="Zero-order optimization"):
         top_perturbation = None
         top_score = -float("inf")
 
-        for _ in range(perturbations_per_iter):
+        inner_iter = tqdm(range(perturbations_per_iter), desc=f"Iteration {iteration}", leave=False)
+        for _ in inner_iter:
             perturbation = torch.randn_like(base_noise)
             candidate_noise = base_noise + step_size * perturbation
 
             model_module.custom_noise = candidate_noise
             out = model_module.predict_step(batch, batch_idx=0)
             score = out["plddt"].mean().item()
-            print(f"[iter {iteration}] PLDDT: {score:.3f}")
+
+            inner_iter.set_postfix(PLDDT=f"{score:.3f}")
 
             if score > top_score:
                 top_score = score
@@ -1053,8 +1055,7 @@ def zero_order_sampling(
                 best_score = score
                 best_out = out
 
-        # Move base noise toward best direction found in this iteration
-        base_noise = base_noise + step_size * top_perturbation 
+        base_noise = base_noise + step_size * top_perturbation
 
     writer = BoltzWriter(
         data_dir=processed.targets_dir,
