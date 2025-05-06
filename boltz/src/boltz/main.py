@@ -30,6 +30,9 @@ MODEL_URL = (
     "https://huggingface.co/boltz-community/boltz-1/resolve/main/boltz1_conf.ckpt"
 )
 
+# Add global variable to store predictions
+_boltz_predictions = None
+
 
 @dataclass
 class BoltzProcessedInput:
@@ -673,6 +676,8 @@ def predict(
     no_potentials: bool = False,
 ) -> None:
     """Run predictions with Boltz-1."""
+    global _boltz_predictions
+    
     # If cpu, write a friendly warning
     if accelerator == "cpu":
         msg = "Running on CPU, this will be slow. Consider using a GPU."
@@ -808,11 +813,15 @@ def predict(
     )
 
     # Compute predictions
-    trainer.predict(
+    predictions = trainer.predict(
         model_module,
         datamodule=data_module,
-        return_predictions=False,
+        return_predictions=True,
     )
+    
+    # Store predictions in global variable
+    _boltz_predictions = predictions
+
 
 @cli.command()
 @click.argument("data", type=click.Path(exists=True))
