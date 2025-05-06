@@ -268,6 +268,7 @@ class Boltz1(LightningModule):
         diffusion_samples: int = 1,
         run_confidence_sequentially: bool = False,
         custom_noise: Optional[torch.Tensor] = None,
+        return_final_reps=False
     ) -> dict[str, Tensor]:
         dict_out = {}
 
@@ -323,6 +324,16 @@ class Boltz1(LightningModule):
 
             pdistogram = self.distogram_module(z)
             dict_out = {"pdistogram": pdistogram}
+
+        if return_final_reps:
+            dict_out.update(
+                {"s_trunk" : s,
+                 "z_trunk" : z,
+                 "s_inputs" : s_inputs,
+                 "feats" : feats,
+                 "relative_position_encoding" : relative_position_encoding,
+                 "multiplicity" : multiplicity_diffusion_train
+                })
 
         # Compute structure module
         if self.training and self.structure_prediction_training:
