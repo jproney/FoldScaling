@@ -654,6 +654,11 @@ def cli() -> None:
     is_flag=True,
     help="Whether to not use potentials for steering. Default is False.",
 )
+@click.option(
+    "--skip_pred",
+    is_flag=True,
+    help="Skip the final prediction step. Useful for setting up model and data only.",
+)
 def predict(
     data: str,
     out_dir: str,
@@ -675,6 +680,7 @@ def predict(
     msa_server_url: str = "https://api.colabfold.com",
     msa_pairing_strategy: str = "greedy",
     no_potentials: bool = False,
+    skip_pred: bool = False,
 ) -> None:
     """Run predictions with Boltz-1."""
     global _boltz_predictions
@@ -815,6 +821,15 @@ def predict(
         precision=32,
     )
 
+
+    # Store predictions in global variable (hack but whatever)
+    _boltz_module = model_module
+    _boltz_inputs = processed
+
+    if skip_pred:
+        click.echo("Skipping prediction step as requested.")
+        return
+
     # Compute predictions
     predictions = trainer.predict(
         model_module,
@@ -822,10 +837,8 @@ def predict(
         return_predictions=True,
     )
     
-    # Store predictions in global variable (hack but whatever)
     _boltz_predictions = predictions
-    _boltz_module = model_module
-    _boltz_inputs = processed
+
 
 
 @cli.command()
