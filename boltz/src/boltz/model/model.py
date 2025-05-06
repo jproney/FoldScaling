@@ -268,7 +268,8 @@ class Boltz1(LightningModule):
         diffusion_samples: int = 1,
         run_confidence_sequentially: bool = False,
         custom_noise: Optional[torch.Tensor] = None,
-        return_final_reps=False
+        return_final_reps=False,
+        skip_diffusion=False
     ) -> dict[str, Tensor]:
         dict_out = {}
 
@@ -347,6 +348,9 @@ class Boltz1(LightningModule):
                     multiplicity=multiplicity_diffusion_train,
                 )
             )
+        
+        if skip_diffusion:
+            return dict_out
 
         if (not self.training) or self.confidence_prediction:
             dict_out.update(
