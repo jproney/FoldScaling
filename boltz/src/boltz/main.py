@@ -32,7 +32,8 @@ MODEL_URL = (
 
 # Add global variable to store predictions
 _boltz_predictions = None
-
+_boltz_module = None
+_boltz_inputs = None
 
 @dataclass
 class BoltzProcessedInput:
@@ -677,6 +678,8 @@ def predict(
 ) -> None:
     """Run predictions with Boltz-1."""
     global _boltz_predictions
+    global _boltz_module
+    global _boltz_inputs
     
     # If cpu, write a friendly warning
     if accelerator == "cpu":
@@ -819,8 +822,10 @@ def predict(
         return_predictions=True,
     )
     
-    # Store predictions in global variable
+    # Store predictions in global variable (hack but whatever)
     _boltz_predictions = predictions
+    _boltz_module = model_module
+    _boltz_inputs = processed
 
 
 @cli.command()
