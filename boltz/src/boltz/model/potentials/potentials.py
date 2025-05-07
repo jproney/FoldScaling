@@ -71,6 +71,8 @@ class Potential(ABC):
                 dEnergy.tile(grad_value.shape[-3]).unsqueeze(-1) * grad_value.flatten(start_dim=-3, end_dim=-2),
                 'sum',
             )
+        else:
+            grad_atom = dEnergy.view([-1,1,1]) * grad_value
 
         if com_index is not None:
             grad_atom = grad_atom[..., com_index, :]
