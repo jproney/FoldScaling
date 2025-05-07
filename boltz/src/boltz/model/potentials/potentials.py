@@ -17,7 +17,7 @@ class Potential(ABC):
     def compute(self, coords, feats, parameters):
         index, args, com_args = self.compute_args(feats, parameters)
 
-        if index.shape[1] == 0 and index is not None:
+        if index is not None and index.shape[1] == 0:
             return torch.zeros(coords.shape[:-2], device=coords.device)
 
         if com_args is not None:
