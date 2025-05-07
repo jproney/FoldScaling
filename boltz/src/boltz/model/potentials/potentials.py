@@ -17,7 +17,7 @@ class Potential(ABC):
     def compute(self, coords, feats, parameters):
         index, args, com_args = self.compute_args(feats, parameters)
 
-        if index.shape[1] == 0:
+        if index.shape[1] == 0 and index is not None:
             return torch.zeros(coords.shape[:-2], device=coords.device)
 
         if com_args is not None:
@@ -44,7 +44,7 @@ class Potential(ABC):
         else:
             com_index, atom_pad_mask = None, None
 
-        if index.shape[1] == 0:
+        if index.shape[1] == 0 and index is not None:
             return torch.zeros_like(coords)
 
         if com_index is not None:
@@ -64,12 +64,13 @@ class Potential(ABC):
         value, grad_value = self.compute_variable(coords, index, compute_gradient=True)
         energy, dEnergy = self.compute_function(value, *args, compute_derivative=True)
 
-        grad_atom = torch.zeros_like(coords).scatter_reduce(
-            -2,
-            index.flatten(start_dim=0, end_dim=1).unsqueeze(-1).expand((*coords.shape[:-2],-1,3)),
-            dEnergy.tile(grad_value.shape[-3]).unsqueeze(-1) * grad_value.flatten(start_dim=-3, end_dim=-2),
-            'sum',
-        )
+        if index is not None:
+            grad_atom = torch.zeros_like(coords).scatter_reduce(
+                -2,
+                index.flatten(start_dim=0, end_dim=1).unsqueeze(-1).expand((*coords.shape[:-2],-1,3)),
+                dEnergy.tile(grad_value.shape[-3]).unsqueeze(-1) * grad_value.flatten(start_dim=-3, end_dim=-2),
+                'sum',
+            )
 
         if com_index is not None:
             grad_atom = grad_atom[..., com_index, :]
