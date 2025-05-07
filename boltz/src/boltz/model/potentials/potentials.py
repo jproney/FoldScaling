@@ -44,7 +44,7 @@ class Potential(ABC):
         else:
             com_index, atom_pad_mask = None, None
 
-        if index.shape[1] == 0 and index is not None:
+        if index is not None and index.shape[1] == 0:
             return torch.zeros_like(coords)
 
         if com_index is not None:
