@@ -453,9 +453,13 @@ class AtomDiffusion(Module):
         train_accumulate_token_repr=False,
         steering_args=None,
         custom_noise=None,
+        custom_potentials=None,
         **network_condition_kwargs,
     ):
-        potentials = get_potentials()
+        if custom_potentials is None:
+            potentials = get_potentials()
+        else:
+            potentials = custom_potentials
         if steering_args["fk_steering"]:
             multiplicity = multiplicity * steering_args["num_particles"]
             energy_traj = torch.empty((multiplicity, 0), device=self.device)
