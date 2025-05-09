@@ -566,7 +566,10 @@ class AtomDiffusion(Module):
                     if step_idx == 0:
                         log_G = -1 * energy
                     else:
-                        log_G = energy_traj[:, -2] - energy_traj[:, -1]
+                        if steering_args["potential_type"] == "vanilla":
+                            log_G = - energy_traj[:, -1]
+                        else:
+                            log_G = energy_traj[:, -2] - energy_traj[:, -1]
 
                     # Compute ll difference between guided and unguided transition distribution
                     if steering_args["guidance_update"] and noise_var > 0:
