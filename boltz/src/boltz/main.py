@@ -1286,8 +1286,8 @@ def random_sampling(
         random_noise = torch.randn(noise_shape, device=device)
         model_module.custom_noise = random_noise
         out = model_module.predict_step(batch, batch_idx=0)
-        score = out["ptm"].item()
-        # score = out["plddt"].mean().item()
+        #score = out["ptm"].item()
+        score = out["plddt"].mean().item()
         random_scores.append(score)
         click.echo(f"Sample {i+1}: PLDDT = {score:.4f}")
 
