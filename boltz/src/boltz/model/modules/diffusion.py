@@ -538,7 +538,7 @@ class AtomDiffusion(Module):
                 if steering_args["fk_steering"] and (
                     (
                         step_idx % steering_args["fk_resampling_interval"] == 0
-                        and noise_var > 0 and sigma_t < getattr(steering_args["max_fk_noise"], float('inf'))
+                        and noise_var > 0 and sigma_t < getattr(steering_args, "max_fk_noise", float('inf'))
                     )
                     or step_idx == num_sampling_steps - 1
                 ):
@@ -549,7 +549,7 @@ class AtomDiffusion(Module):
                         parameters = potential.compute_parameters(steering_t)
                         if parameters["resampling_weight"] > 0:
 
-                            if getattr(steering_args["noise_coord_potential"], False):
+                            if getattr(steering_args, "noise_coord_potential", False):
                                 atoms_to_score = atom_coords_noisy
                             else:
                                 atoms_to_score = atom_coords_denoised
