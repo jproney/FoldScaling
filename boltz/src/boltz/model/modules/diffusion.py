@@ -538,17 +538,24 @@ class AtomDiffusion(Module):
                 if steering_args["fk_steering"] and (
                     (
                         step_idx % steering_args["fk_resampling_interval"] == 0
-                        and noise_var > 0
+                        and noise_var > 0 and sigma_t < getattr(steering_args["max_fk_noise"], float('inf'))
                     )
                     or step_idx == num_sampling_steps - 1
                 ):
+                    print(sigma_t)
                     # Compute energy of x_0 prediction
                     energy = torch.zeros(multiplicity, device=self.device)
                     for potential in potentials:
                         parameters = potential.compute_parameters(steering_t)
                         if parameters["resampling_weight"] > 0:
+
+                            if getattr(steering_args["noise_coord_potential"], False):
+                                atoms_to_score = atom_coords_noisy
+                            else:
+                                atoms_to_score = atom_coords_denoised
+
                             component_energy = potential.compute(
-                                atom_coords_denoised,
+                                atoms_to_score,
                                 network_condition_kwargs["feats"],
                                 parameters,
                             )
