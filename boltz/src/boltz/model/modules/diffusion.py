@@ -568,6 +568,8 @@ class AtomDiffusion(Module):
                     else:
                         if steering_args["potential_type"] == "vanilla":
                             log_G = - energy_traj[:, -1]
+                        elif steering_args["potential_type"] == "max":
+                            log_G = - energy_traj.amax(dim=-1)
                         else:
                             log_G = energy_traj[:, -2] - energy_traj[:, -1]
 
@@ -586,7 +588,8 @@ class AtomDiffusion(Module):
                         ),
                         dim=1,
                     )
-                    print(log_G)
+                    print(resample_weights)
+
                 # Compute guidance update to x_0 prediction
                 if (
                     steering_args["guidance_update"]
