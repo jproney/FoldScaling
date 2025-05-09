@@ -569,7 +569,7 @@ class AtomDiffusion(Module):
                         if steering_args["potential_type"] == "vanilla":
                             log_G = - energy_traj[:, -1]
                         elif steering_args["potential_type"] == "max":
-                            log_G = - energy_traj.amax(dim=-1)
+                            log_G = torch.amax(-energy_traj, dim=-1)
                         else:
                             log_G = energy_traj[:, -2] - energy_traj[:, -1]
 
