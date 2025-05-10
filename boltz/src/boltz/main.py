@@ -686,7 +686,7 @@ def predict(
     global _boltz_predictions
     global _boltz_module
     global _boltz_inputs
-    
+
     # If cpu, write a friendly warning
     if accelerator == "cpu":
         msg = "Running on CPU, this will be slow. Consider using a GPU."
@@ -836,7 +836,7 @@ def predict(
         datamodule=data_module,
         return_predictions=True,
     )
-    
+
     _boltz_predictions = predictions
 
 
