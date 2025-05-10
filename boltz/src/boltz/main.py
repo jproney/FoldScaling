@@ -1172,32 +1172,132 @@ def zero_order_sampling(
 @click.option(
     "--out_dir",
     type=click.Path(exists=False),
-    help="Path to save predictions.",
+    help="The path where to save the predictions.",
     default="./",
 )
-@click.option("--cache", default=get_cache_path, help="Cache directory.")
-@click.option("--checkpoint", default=None, help="Optional checkpoint path.")
-@click.option("--devices", default=1, help="Number of devices to use.")
-@click.option("--accelerator", default="gpu", type=click.Choice(["gpu", "cpu", "tpu"]))
-@click.option("--sampling_steps", default=200, help="Sampling steps.")
-@click.option("--step_scale", default=1.638, help="Step size scale.")
-@click.option("--num_workers", default=2, help="Dataloader workers.")
-@click.option("--seed", default=None, type=int, help="Random seed.")
-@click.option("--use_msa_server", is_flag=True, help="Use MMSeqs2 server for MSA generation.")
-@click.option("--num_random_samples", default=10, help="Number of random samples.")
+@click.option(
+    "--cache",
+    type=click.Path(exists=False),
+    help="The directory where to download the data and model. Default is ~/.boltz, or $BOLTZ_CACHE if set.",
+    default=get_cache_path,
+)
+@click.option(
+    "--checkpoint",
+    type=click.Path(exists=True),
+    help="An optional checkpoint, will use the provided Boltz-1 model by default.",
+    default=None,
+)
+@click.option(
+    "--devices",
+    type=int,
+    help="The number of devices to use for prediction. Default is 1.",
+    default=1,
+)
+@click.option(
+    "--accelerator",
+    type=click.Choice(["gpu", "cpu", "tpu"]),
+    help="The accelerator to use for prediction. Default is gpu.",
+    default="gpu",
+)
+@click.option(
+    "--sampling_steps",
+    type=int,
+    help="The number of sampling steps to use for prediction. Default is 200.",
+    default=200,
+)
+@click.option(
+    "--step_scale",
+    type=float,
+    help="The step size is related to the temperature at which the diffusion process samples the distribution."
+    "The lower the higher the diversity among samples (recommended between 1 and 2). Default is 1.638.",
+    default=1.638,
+)
+@click.option(
+    "--write_full_pae",
+    type=bool,
+    is_flag=True,
+    help="Whether to dump the pae into a npz file. Default is True.",
+)
+@click.option(
+    "--write_full_pde",
+    type=bool,
+    is_flag=True,
+    help="Whether to dump the pde into a npz file. Default is False.",
+)
+@click.option(
+    "--output_format",
+    type=click.Choice(["pdb", "mmcif"]),
+    help="The output format to use for the predictions. Default is mmcif.",
+    default="mmcif",
+)
+@click.option(
+    "--num_workers",
+    type=int,
+    help="The number of dataloader workers to use for prediction. Default is 2.",
+    default=2,
+)
+@click.option(
+    "--override",
+    is_flag=True,
+    help="Whether to override existing found predictions. Default is False.",
+)
+@click.option(
+    "--seed",
+    type=int,
+    help="Seed to use for random number generator. Default is None (no seeding).",
+    default=None,
+)
+@click.option(
+    "--use_msa_server",
+    is_flag=True,
+    help="Whether to use the MMSeqs2 server for MSA generation. Default is False.",
+)
+@click.option(
+    "--msa_server_url",
+    type=str,
+    help="MSA server url. Used only if --use_msa_server is set. ",
+    default="https://api.colabfold.com",
+)
+@click.option(
+    "--msa_pairing_strategy",
+    type=str,
+    help="Pairing strategy to use. Used only if --use_msa_server is set. Options are 'greedy' and 'complete'",
+    default="greedy",
+)
+@click.option(
+    "--no_potentials",
+    is_flag=True,
+    help="Whether to not use potentials for steering. Default is False.",
+)
+@click.option(
+    "--num_candidates",
+    type=int,
+    default=8,
+)
+
+
 def random_sampling(
     data: str,
     out_dir: str,
-    cache: str,
-    checkpoint: Optional[str],
-    devices: int,
-    accelerator: str,
-    sampling_steps: int,
-    step_scale: float,
-    num_workers: int,
-    seed: Optional[int],
-    use_msa_server: bool,
-    num_random_samples: int,
+    cache: str = "~/.boltz",
+    checkpoint: Optional[str] = None,
+    devices: int = 1,
+    accelerator: str = "gpu",
+    sampling_steps: int = 200,
+    step_scale: float = 1.638,
+    write_full_pae: bool = False,
+    write_full_pde: bool = False,
+    output_format: Literal["pdb", "mmcif"] = "mmcif",
+    num_workers: int = 2,
+    override: bool = False,
+    seed: Optional[int] = None,
+    use_msa_server: bool = False,
+    msa_server_url: str = "https://api.colabfold.com",
+    msa_pairing_strategy: str = "greedy",
+    no_potentials: bool = False,
+    num_candidates: int = 8,
+    num_random_samples: int =10,
+
 ) -> None:
     """Run random sampling predictions with Boltz-1."""
     torch.set_grad_enabled(False)
@@ -1259,6 +1359,12 @@ def random_sampling(
     }
     diffusion_params = BoltzDiffusionParams(step_scale=step_scale)
 
+
+    steering_args = BoltzSteeringParams()
+    if no_potentials:
+        steering_args.fk_steering = False
+        steering_args.guidance_update = False
+
     model_module: Boltz1 = Boltz1.load_from_checkpoint(
         checkpoint,
         strict=True,
@@ -1268,7 +1374,7 @@ def random_sampling(
         ema=False,
         pairformer_args=asdict(PairformerArgs()),
         msa_module_args=asdict(MSAModuleArgs()),
-        steering_args=asdict(BoltzSteeringParams()),
+        steering_args=asdict(steering_args),
     )
     model_module.eval()
 

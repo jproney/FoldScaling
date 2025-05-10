@@ -542,6 +542,7 @@ class AtomDiffusion(Module):
                     )
                     or step_idx == num_sampling_steps - 1
                 ):
+                    breakpoint()
                     print(sigma_t)
                     # Compute energy of x_0 prediction
                     energy = torch.zeros(multiplicity, device=self.device)
