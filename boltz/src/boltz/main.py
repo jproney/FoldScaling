@@ -24,6 +24,8 @@ from boltz.data.parse.yaml import parse_yaml
 from boltz.data.types import MSA, Manifest, Record
 from boltz.data.write.writer import BoltzWriter
 from boltz.model.model import Boltz1
+from boltz.model.potentials.potentials import Potential
+
 
 CCD_URL = "https://huggingface.co/boltz-community/boltz-1/resolve/main/ccd.pkl"
 MODEL_URL = (
@@ -102,6 +104,51 @@ class BoltzSteeringParams:
     fk_resampling_interval: int = 3
     guidance_update: bool = True
     num_gd_steps: int = 16
+
+
+
+"""
+Class for FK guidance with confidence module as guiding potential
+"""
+
+class BoltzConfidencePotential(Potential):
+
+    def compute_args(self, feats, params):
+        return None, (), None # dummy return vals
+    
+    def compute_variable(self, coords, index, compute_gradient=False):
+
+            
+        conf_out = self.parameters['model'].confidence_module(
+                s_inputs=self.parameters['trunk_out']['s_trunk'],
+                s=self.parameters['trunk_out']['s_trunk'],
+                z=self.parameters['trunk_out']['z_trunk'],
+                s_diffusion=None,
+                x_pred=coords,
+                feats=self.parameters['trunk_out']['feats'],
+                pred_distogram_logits=self.parameters['trunk_out']["pdistogram"],
+                multiplicity=self.parameters['total_particles'],
+                run_sequentially=False
+            )
+
+        conf_score = (4*conf_out['complex_plddt'] + conf_out['ptm']) / 5
+        conf_score = conf_score.unsqueeze(-1) # this is important because it expects the energy to have many contributions from different indices
+
+        print(conf_score)
+        if not compute_gradient:
+            return conf_score
+
+        return conf_score, torch.zeros_like(coords) # we can't get a gradient because the prediction is turned into a binned dgram
+        
+
+    def compute_function(self, value, compute_derivative=False):
+        nrg = 1-value
+        if not compute_derivative:
+            return nrg
+        
+        return nrg, -value
+
+        
 
 
 @rank_zero_only
@@ -659,6 +706,11 @@ def cli() -> None:
     is_flag=True,
     help="Skip the final prediction step. Useful for setting up model and data only.",
 )
+@click.option(
+    "--confidence_fk",
+    is_flag=True,
+    help="Use model confidence for fk steering",
+)
 def predict(
     data: str,
     out_dir: str,
@@ -681,6 +733,7 @@ def predict(
     msa_pairing_strategy: str = "greedy",
     no_potentials: bool = False,
     skip_pred: bool = False,
+    confidence_fk: bool = False
 ) -> None:
     """Run predictions with Boltz-1."""
     global _boltz_predictions
@@ -792,6 +845,16 @@ def predict(
         steering_args.fk_steering = False
         steering_args.guidance_update = False
 
+    if confidence_fk:
+        steering_args.num_particles=8
+        steering_args.fk_lambda=50
+        steering_args.fk_resampling_interval=5
+        steering_args.guidance_update=False
+        steering_args.max_fk_noise = 100
+        steering_args.potential_type = "vanilla"
+        steering_args.noise_coord_potential = False
+
+
     model_module: Boltz1 = Boltz1.load_from_checkpoint(
         checkpoint,
         strict=True,
@@ -804,6 +867,16 @@ def predict(
         steering_args=asdict(steering_args),
     )
     model_module.eval()
+
+    if confidence_fk:
+        pot = BoltzConfidencePotential(parameters={
+                'guidance_interval': 5,
+                'guidance_weight': 0.00,
+                'resampling_weight': 1.0,
+                'model' : model_module
+            })
+
+        model_module.predict_args['confidence_potential'] = pot
 
     # Create prediction writer
     pred_writer = BoltzWriter(
@@ -820,7 +893,6 @@ def predict(
         devices=devices,
         precision=32,
     )
-
 
     # Store predictions in global variable (hack but whatever)
     _boltz_module = model_module

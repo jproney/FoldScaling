@@ -269,7 +269,8 @@ class Boltz1(LightningModule):
         run_confidence_sequentially: bool = False,
         custom_noise: Optional[torch.Tensor] = None,
         return_final_reps=False,
-        skip_diffusion=False
+        skip_diffusion=False,
+        confidence_potential=None,
     ) -> dict[str, Tensor]:
         dict_out = {}
 
@@ -348,7 +349,11 @@ class Boltz1(LightningModule):
                     multiplicity=multiplicity_diffusion_train,
                 )
             )
-        
+
+        if confidence_potential is not None:
+            confidence_potential.parameters["trunk_out"] = dict_out
+
+
         if skip_diffusion:
             return dict_out
 
@@ -366,6 +371,7 @@ class Boltz1(LightningModule):
                     train_accumulate_token_repr=self.training,
                     steering_args=self.steering_args,
                     custom_noise=custom_noise,
+                    custom_potentials=[confidence_potential] if confidence_potential else None
                 )
             )
 
