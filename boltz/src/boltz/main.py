@@ -845,15 +845,6 @@ def predict(
         steering_args.fk_steering = False
         steering_args.guidance_update = False
 
-    if confidence_fk:
-        steering_args.num_particles=8
-        steering_args.fk_lambda=50
-        steering_args.fk_resampling_interval=5
-        steering_args.guidance_update=False
-        steering_args.max_fk_noise = 100
-        steering_args.potential_type = "vanilla"
-        steering_args.noise_coord_potential = False
-
 
     model_module: Boltz1 = Boltz1.load_from_checkpoint(
         checkpoint,
@@ -869,6 +860,14 @@ def predict(
     model_module.eval()
 
     if confidence_fk:
+        model_module.steering_args['num_particles']=8
+        model_module.steering_args['fk_lambda']=50
+        model_module.steering_args['fk_resampling_interval']=5
+        model_module.steering_args['guidance_update']=False
+        model_module.steering_args['max_fk_noise'] = 100
+        model_module.steering_args['potential_type'] = "vanilla"
+        model_module.steering_args['noise_coord_potential'] = False
+
         pot = BoltzConfidencePotential(parameters={
                 'guidance_interval': 5,
                 'guidance_weight': 0.00,
