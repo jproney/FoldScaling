@@ -877,6 +877,7 @@ def predict(
             })
 
         model_module.predict_args['confidence_potential'] = pot
+        model_module.confidence_module.use_s_diffusion=False
     else:
         model_module.predict_args['confidence_potential'] = None
 
