@@ -327,7 +327,7 @@ class Boltz1(LightningModule):
             pdistogram = self.distogram_module(z)
             dict_out = {"pdistogram": pdistogram}
 
-        if return_final_reps:
+        if return_final_reps or confidence_potential is not None:
             dict_out.update(
                 {"s_trunk" : s,
                  "z_trunk" : z,
