@@ -1157,6 +1157,7 @@ class Boltz1(LightningModule):
                 diffusion_samples=self.predict_args["diffusion_samples"],
                 run_confidence_sequentially=True,
                 custom_noise= self.custom_noise,
+                confidence_potential= self.predict_args["confidence_potential"]
             )
             pred_dict = {"exception": False}
             pred_dict["masks"] = batch["atom_pad_mask"]

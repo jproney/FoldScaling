@@ -876,6 +876,9 @@ def predict(
             })
 
         model_module.predict_args['confidence_potential'] = pot
+    else:
+        model_module.predict_args['confidence_potential'] = None
+
 
     # Create prediction writer
     pred_writer = BoltzWriter(
