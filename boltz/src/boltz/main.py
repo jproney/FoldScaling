@@ -873,6 +873,7 @@ def predict(
                 'guidance_weight': 0.00,
                 'resampling_weight': 1.0,
                 'model' : model_module
+                'total_particles' : diffusion_samples * model_module.steering_args['num_particles']
             })
 
         model_module.predict_args['confidence_potential'] = pot
