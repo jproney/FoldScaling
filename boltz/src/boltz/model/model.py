@@ -1149,57 +1149,48 @@ class Boltz1(LightningModule):
         self.best_rmsd.reset()
 
     def predict_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Any:
-        try:
-            out = self(
-                batch,
-                recycling_steps=self.predict_args["recycling_steps"],
-                num_sampling_steps=self.predict_args["sampling_steps"],
-                diffusion_samples=self.predict_args["diffusion_samples"],
-                run_confidence_sequentially=True,
-                custom_noise= self.custom_noise,
-                confidence_potential= self.predict_args["confidence_potential"]
-            )
-            pred_dict = {"exception": False}
-            pred_dict["masks"] = batch["atom_pad_mask"]
-            pred_dict["coords"] = out["sample_atom_coords"]
-            if self.predict_args.get("write_confidence_summary", True):
-                pred_dict["confidence_score"] = (
-                    4 * out["complex_plddt"]
-                    + (
-                        out["iptm"]
-                        if not torch.allclose(
-                            out["iptm"], torch.zeros_like(out["iptm"])
-                        )
-                        else out["ptm"]
+        out = self(
+            batch,
+            recycling_steps=self.predict_args["recycling_steps"],
+            num_sampling_steps=self.predict_args["sampling_steps"],
+            diffusion_samples=self.predict_args["diffusion_samples"],
+            run_confidence_sequentially=True,
+            custom_noise= self.custom_noise,
+            confidence_potential= self.predict_args["confidence_potential"]
+        )
+        pred_dict = {"exception": False}
+        pred_dict["masks"] = batch["atom_pad_mask"]
+        pred_dict["coords"] = out["sample_atom_coords"]
+        if self.predict_args.get("write_confidence_summary", True):
+            pred_dict["confidence_score"] = (
+                4 * out["complex_plddt"]
+                + (
+                    out["iptm"]
+                    if not torch.allclose(
+                        out["iptm"], torch.zeros_like(out["iptm"])
                     )
-                ) / 5
-                for key in [
-                    "ptm",
-                    "iptm",
-                    "ligand_iptm",
-                    "protein_iptm",
-                    "pair_chains_iptm",
-                    "complex_plddt",
-                    "complex_iplddt",
-                    "complex_pde",
-                    "complex_ipde",
-                    "plddt",
-                ]:
-                    pred_dict[key] = out[key]
-            if self.predict_args.get("write_full_pae", True):
-                pred_dict["pae"] = out["pae"]
-            if self.predict_args.get("write_full_pde", False):
-                pred_dict["pde"] = out["pde"]
-            return pred_dict
+                    else out["ptm"]
+                )
+            ) / 5
+            for key in [
+                "ptm",
+                "iptm",
+                "ligand_iptm",
+                "protein_iptm",
+                "pair_chains_iptm",
+                "complex_plddt",
+                "complex_iplddt",
+                "complex_pde",
+                "complex_ipde",
+                "plddt",
+            ]:
+                pred_dict[key] = out[key]
+        if self.predict_args.get("write_full_pae", True):
+            pred_dict["pae"] = out["pae"]
+        if self.predict_args.get("write_full_pde", False):
+            pred_dict["pde"] = out["pde"]
+        return pred_dict
 
-        except RuntimeError as e:  # catch out of memory exceptions
-            if "out of memory" in str(e):
-                print("| WARNING: ran out of memory, skipping batch")
-                torch.cuda.empty_cache()
-                gc.collect()
-                return {"exception": True}
-            else:
-                raise
 
     def configure_optimizers(self):
         """Configure the optimizer."""
