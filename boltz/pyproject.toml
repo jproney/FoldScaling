@@ -34,6 +34,7 @@ dependencies = [
 
 [project.scripts]
 boltz = "boltz.main:cli"
+boltz-exp = "boltz.experiments:cli"
 
 [project.optional-dependencies]
 lint = ["ruff"]
