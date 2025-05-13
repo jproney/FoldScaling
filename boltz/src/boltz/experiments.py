@@ -1,3 +1,4 @@
+import gc
 import json
 import pathlib
 from dataclasses import asdict
@@ -695,25 +696,32 @@ def monomers_single_sample(
         for fasta in tqdm(fasta_files, desc=f"Sampling={steps}", leave=False):
             print(f"\n------\nProcessing {fasta.name}")
 
-            random_sampling(
-                data=str(fasta),
-                out_dir=str(out_dir),
-                devices=1,
-                accelerator="gpu",
-                sampling_steps=steps,
-                step_scale=1.638,
-                write_full_pae=True,
-                write_full_pde=False,
-                output_format="mmcif",
-                num_workers=2,
-                override=False,
-                seed=None,
-                use_msa_server=False,
-                no_potentials=True,
-                recycling_steps=recycling_steps,
-                num_random_samples=1,
-                score_fn=plddt_score,
-            )
+            try:
+                random_sampling(
+                    data=str(fasta),
+                    out_dir=str(out_dir),
+                    devices=1,
+                    accelerator="gpu",
+                    sampling_steps=steps,
+                    step_scale=1.638,
+                    write_full_pae=True,
+                    write_full_pde=False,
+                    output_format="mmcif",
+                    num_workers=2,
+                    override=False,
+                    seed=None,
+                    use_msa_server=False,
+                    no_potentials=True,
+                    recycling_steps=recycling_steps,
+                    num_random_samples=1,
+                    score_fn=plddt_score,
+                )
+            except Exception as e:
+                print(f"Error processing {fasta.name}: {e}")
+
+            # Free up memory after each fasta file
+            torch.cuda.empty_cache()
+            gc.collect()
 
 
 @cli.command()
