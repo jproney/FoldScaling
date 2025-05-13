@@ -23,7 +23,7 @@ The results will be saved inside `FoldScaling/results/boltz_monomers_msa_False_s
 
 To generate a plot of the results, run:
 ```bash
-boltz-exp plot-plddt-diffs <path/to/boltz_results>
+boltz-exp plot-results <path/to/boltz_results>
 ```
 Where the path is the path to the results you generated in the previous command.
 
@@ -37,3 +37,9 @@ And then (as an example):
 boltz-exp monomers-single-sample --data_dir . --use_msa --sampling steps 1600 --recycling_steps 3
 ```
 The results will be saved inside `FoldScaling/results/boltz_monomers_msa_False_sampling_1600_recycling_3`.
+
+To generate a table of the results from the above experiment, run:
+```bash
+boltz-exp table-single-sample results/
+```
+Assuming the path given only contains the results from varying the number of denoising steps.
