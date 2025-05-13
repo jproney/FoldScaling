@@ -26,3 +26,14 @@ To generate a plot of the results, run:
 boltz-exp plot-plddt-diffs <path/to/boltz_results>
 ```
 Where the path is the path to the results you generated in the previous command.
+
+To run the single sample experiment, run:
+```bash
+cd data/boltz_monomers
+```
+
+And then (as an example):
+```bash
+boltz-exp monomers-single-sample --data_dir . --use_msa --sampling steps 1600 --recycling_steps 3
+```
+The results will be saved inside `FoldScaling/results/boltz_monomers_msa_False_sampling_1600_recycling_3`.
