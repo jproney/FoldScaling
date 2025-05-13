@@ -594,7 +594,6 @@ def monomers_predict(
     for fasta in tqdm(fasta_files, desc="Processing monomers"):
         print(f"\n------\nProcessing {fasta.name}")
 
-        # make a new directory for each fasta file
         fasta_name = fasta.stem
         sub_dir = out_dir / fasta_name
         sub_dir.mkdir(parents=True, exist_ok=True)
@@ -640,6 +639,9 @@ def monomers_predict(
             score_fn=plddt_score,
         )
 
+        # Free memory after each FASTA file
+        torch.cuda.empty_cache()
+        gc.collect()
 
 @cli.command()
 @click.option(
@@ -696,28 +698,25 @@ def monomers_single_sample(
         for fasta in tqdm(fasta_files, desc=f"Sampling={steps}", leave=False):
             print(f"\n------\nProcessing {fasta.name}")
 
-            try:
-                random_sampling(
-                    data=str(fasta),
-                    out_dir=str(out_dir),
-                    devices=1,
-                    accelerator="gpu",
-                    sampling_steps=steps,
-                    step_scale=1.638,
-                    write_full_pae=True,
-                    write_full_pde=False,
-                    output_format="mmcif",
-                    num_workers=2,
-                    override=False,
-                    seed=None,
-                    use_msa_server=False,
-                    no_potentials=True,
-                    recycling_steps=recycling_steps,
-                    num_random_samples=1,
-                    score_fn=plddt_score,
-                )
-            except Exception as e:
-                print(f"Error processing {fasta.name}: {e}")
+            random_sampling(
+                data=str(fasta),
+                out_dir=str(out_dir),
+                devices=1,
+                accelerator="gpu",
+                sampling_steps=steps,
+                step_scale=1.638,
+                write_full_pae=True,
+                write_full_pde=False,
+                output_format="mmcif",
+                num_workers=2,
+                override=False,
+                seed=None,
+                use_msa_server=False,
+                no_potentials=True,
+                recycling_steps=recycling_steps,
+                num_random_samples=1,
+                score_fn=plddt_score,
+            )
 
             # Free up memory after each fasta file
             torch.cuda.empty_cache()
