@@ -643,6 +643,7 @@ def monomers_predict(
         torch.cuda.empty_cache()
         gc.collect()
 
+
 @cli.command()
 @click.option(
     "--data_dir",
@@ -902,6 +903,54 @@ def plot_results(results_root: str):
     plt.close()
 
     print(f"Saved all plots to: {save_path}")
+
+
+@cli.command()
+@click.argument("results_root", type=click.Path(exists=True))
+def table_single_sample(results_root: str):
+    """
+    Summarize average pLDDT and pTM for each sampling step experiment.
+    """
+    root = pathlib.Path(results_root)
+    experiment_dirs = [
+        d for d in root.iterdir() if d.is_dir() and d.name.startswith("boltz_monomers")
+    ]
+    summary = {}
+
+    for exp_dir in experiment_dirs:
+        if exp_dir.name == "plots":
+            continue
+        name_parts = exp_dir.name.split("_")
+        sampling_idx = name_parts.index("sampling")
+        sampling_step = int(name_parts[sampling_idx + 1])
+        summary[sampling_step] = []
+        all_plddt, all_ptm, all_conf = [], [], []
+
+        for subdir in exp_dir.iterdir():
+            pred_dir = subdir / "predictions"
+            inner_dirs = [p for p in pred_dir.iterdir() if p.is_dir()]
+            if not inner_dirs:
+                print(f"No subdirectory inside {pred_dir}, skipping...")
+                continue
+            pred_dir = inner_dirs[0]
+            json_file = next(pred_dir.glob("*.json"))
+            with open(json_file, "r") as f:
+                data = json.load(f)
+            all_plddt.append(float(data["complex_plddt"]))
+            all_ptm.append(float(data["ptm"]))
+            all_conf.append(float(data["confidence_score"]))
+
+        if all_plddt:
+            avg_plddt = sum(all_plddt) / len(all_plddt)
+            avg_ptm = sum(all_ptm) / len(all_ptm)
+            avg_conf = sum(all_conf) / len(all_conf)
+            summary[sampling_step] = (avg_plddt, avg_ptm, avg_conf)
+
+    print("\nSampling Steps | Avg pLDDT | Avg pTM | Avg Confidence")
+    print("-" * 55)
+    for step in sorted(summary.keys()):
+        plddt, ptm, conf = summary[step]
+        print(f"{step:<14}   {plddt:.4f}     {ptm:.4f}    {conf:.4f}")
 
 
 if __name__ == "__main__":
