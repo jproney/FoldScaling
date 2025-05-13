@@ -471,7 +471,7 @@ def random_sampling(
         out = model_module.predict_step(batch, batch_idx=0)
         score = score_fn(out)
         random_scores.append(score)
-        click.echo(f"Sample {i+1}: Score = {score:.4f}")
+        click.echo(f"Sample {i+1}: Score = {score.item():.4f}")
 
         if score > best_score:
             best_score = score
