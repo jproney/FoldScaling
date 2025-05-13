@@ -275,6 +275,7 @@ def zero_order_sampling(
             model_module.custom_noise = candidate_noise
             out = model_module.predict_step(batch, batch_idx=0)
             score = score_fn(out)
+            score = score.item() if isinstance(score, torch.Tensor) else score
 
             inner_iter.set_postfix(**{score_fn.__name__: f"{score:.3f}"}, refresh=True)
 
