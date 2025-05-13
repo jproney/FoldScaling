@@ -637,6 +637,85 @@ def monomers_predict(
 
 
 @cli.command()
+@click.option(
+    "--data_dir",
+    type=click.Path(exists=True),
+    help="The path to the directory containing the fasta files.",
+)
+@click.option(
+    "--use_msa",
+    is_flag=True,
+    help="Whether to use the MSA file.",
+    default=False,
+)
+@click.option(
+    "--sampling_steps",
+    type=int,
+    help="The number of sampling steps to use for prediction.",
+    default=1600,
+)
+@click.option(
+    "--recycling_steps",
+    type=int,
+    help="The number of recycling steps to use for prediction.",
+    default=0,
+)
+def monomers_single_sample(
+    data_dir: str,
+    use_msa: bool,
+    sampling_steps: int,
+    recycling_steps: int,
+) -> None:
+    """Make sure to run this command inside the data directory."""
+
+    parent_dir = pathlib.Path(data_dir).absolute().parent.parent
+    results_dir = parent_dir / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    out_dir = (
+        results_dir
+        / f"boltz_monomers_msa_{use_msa}_sampling_{sampling_steps}_recycling_{recycling_steps}"
+    )
+    out_dir = pathlib.Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    all_fasta_files = list(pathlib.Path(data_dir).glob("*.fasta"))
+
+    if use_msa:
+        fasta_files = [f for f in all_fasta_files if "_no_msa" not in f.name]
+    else:
+        fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
+
+    for fasta in tqdm(fasta_files, desc="Processing monomers"):
+        print(f"\n------\nProcessing {fasta.name}")
+
+        # make a new directory for each fasta file
+        fasta_name = fasta.stem
+        sub_dir = out_dir / fasta_name
+        sub_dir.mkdir(parents=True, exist_ok=True)
+
+        random_sampling(
+            data=str(fasta),
+            out_dir=str(sub_dir),
+            devices=1,
+            accelerator="gpu",
+            sampling_steps=sampling_steps,
+            step_scale=1.638,
+            write_full_pae=True,
+            write_full_pde=False,
+            output_format="mmcif",
+            num_workers=2,
+            override=False,
+            seed=None,
+            use_msa_server=False,
+            no_potentials=True,
+            recycling_steps=recycling_steps,
+            num_random_samples=1,
+            score_fn=plddt_score,
+        )
+
+
+@cli.command()
 @click.argument("results_root", type=click.Path(exists=True))
 def plot_results(results_root: str):
     root = pathlib.Path(results_root)
