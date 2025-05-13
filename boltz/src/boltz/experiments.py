@@ -6,6 +6,7 @@ from typing import Literal, Optional
 
 import click
 from matplotlib import pyplot as plt
+from scipy.stats import gaussian_kde
 import torch
 import numpy as np
 import torch.nn.functional as F
@@ -29,27 +30,6 @@ from boltz.main import (
     process_inputs,
     BoltzProcessedInput,
 )
-
-
-def generate_neighbors(x, threshold=0.95, num_neighbors=4):
-    """Courtesy: Willis Ma"""
-    rng = np.random.Generator(np.random.PCG64())
-    x_f = x.flatten(1)
-    x_norm = torch.linalg.norm(
-        x_f, dim=-1, keepdim=True, dtype=torch.float64
-    ).unsqueeze(-2)
-    u = x_f.unsqueeze(-2) / x_norm.clamp_min(1e-12)
-    v = torch.from_numpy(
-        rng.standard_normal(
-            size=(u.shape[0], num_neighbors, u.shape[-1]), dtype=np.float64
-        )
-    ).to(u.device)
-    w = F.normalize(v - (v @ u.transpose(-2, -1)) * u, dim=-1)
-    return (
-        (x_norm * (threshold * u + np.sqrt(1 - threshold**2) * w))
-        .reshape(x.shape[0], num_neighbors, *x.shape[1:])
-        .to(x.dtype)
-    )
 
 
 def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
@@ -649,35 +629,70 @@ def monomers_predict(
 
 @cli.command()
 @click.argument("results_root", type=click.Path(exists=True))
-def plot_plddt_diffs(results_root: str):
+def plot_results(results_root: str):
     root = pathlib.Path(results_root)
     save_path = root / "plots"
     save_path.mkdir(parents=True, exist_ok=True)
+
     differences = []
+    random_plddts, zos_plddts = [], []
+    random_ptms, zos_ptms = [], []
 
     subdirs = [d for d in root.iterdir() if d.is_dir() and d.name != "plots"]
 
-    for subdir in tqdm(subdirs, desc="Comparing ZOS vs Random"):
-        # find random directory
-        random_dir = next(subdir.glob("random_*"), None)
-        random_predictions = random_dir / "predictions" / subdir.name
-        random_results = next(random_predictions.glob("*.json"), None)
+    for subdir in tqdm(subdirs, desc="Loading scores for plots"):
+        try:
+            random_dir = next(subdir.glob("random_*"), None)
+            zos_dir = next(subdir.glob("zero_order_*"), None)
 
-        # find zero-order directory
-        zero_order_dir = next(subdir.glob("zero_order_*"), None)
-        zero_order_predictions = zero_order_dir / "predictions" / subdir.name
-        zero_order_results = next(zero_order_predictions.glob("*.json"), None)
+            random_json = next(
+                (random_dir / "predictions" / subdir.name).glob("*.json"), None
+            )
+            zos_json = next(
+                (zos_dir / "predictions" / subdir.name).glob("*.json"), None
+            )
 
-        # Load scores
-        with open(random_results, "r") as f:
-            random_data = json.load(f)
-        with open(zero_order_results, "r") as f:
-            zos_data = json.load(f)
+            with open(random_json, "r") as f:
+                random_data = json.load(f)
+            with open(zos_json, "r") as f:
+                zos_data = json.load(f)
 
-        diff = zos_data["complex_plddt"] - random_data["complex_plddt"]
-        differences.append(diff)
+            random_plddt = float(random_data["complex_plddt"])
+            zos_plddt = float(zos_data["complex_plddt"])
+            random_ptm = float(random_data["ptm"])
+            zos_ptm = float(zos_data["ptm"])
 
-    # Plot and save
+            random_plddts.append(random_plddt)
+            zos_plddts.append(zos_plddt)
+            random_ptms.append(random_ptm)
+            zos_ptms.append(zos_ptm)
+            differences.append(zos_plddt - random_plddt)
+        except Exception as e:
+            print(f"Skipping {subdir.name} due to error: {e}")
+            continue
+
+    # Convert lists explicitly to numpy arrays
+    random_plddts = np.array(random_plddts)
+    zos_plddts = np.array(zos_plddts)
+    random_ptms = np.array(random_ptms)
+    zos_ptms = np.array(zos_ptms)
+    differences = np.array(differences)
+
+    # Helper function to plot histogram and KDE
+    def plot_histogram_kde(data, color, title, xlabel, filename):
+        plt.figure(figsize=(8, 5))
+        plt.hist(data, bins=20, density=True, alpha=0.6, color=color, edgecolor="black")
+        kde = gaussian_kde(data)
+        x_range = np.linspace(min(data), max(data), 1000)
+        plt.plot(x_range, kde(x_range), color="k", lw=2)
+        plt.title(title)
+        plt.xlabel(xlabel)
+        plt.ylabel("Density")
+        plt.tight_layout()
+        plt.savefig(save_path / filename)
+        plt.close()
+
+    # Plot Difference histogram (no KDE necessary here)
     plt.figure(figsize=(8, 5))
     plt.hist(differences, bins=20, color="skyblue", edgecolor="black")
     plt.axvline(0, color="red", linestyle="--")
@@ -685,10 +700,112 @@ def plot_plddt_diffs(results_root: str):
     plt.xlabel("Difference in Best PLDDT")
     plt.ylabel("Number of Monomers")
     plt.tight_layout()
+    plt.savefig(save_path / "plddt_diff_histogram.png")
+    plt.close()
 
-    plot_file = save_path / "plddt_diff_histogram.png"
-    plt.savefig(plot_file)
-    print(f"Saved histogram to: {plot_file}")
+    # Individual PLDDT distributions
+    plot_histogram_kde(
+        random_plddts,
+        "skyblue",
+        "Random Sampling: PLDDT Distribution",
+        "PLDDT",
+        "random_plddt_distribution.png",
+    )
+    plot_histogram_kde(
+        zos_plddts,
+        "lightgreen",
+        "Zero-Order Search: PLDDT Distribution",
+        "PLDDT",
+        "zos_plddt_distribution.png",
+    )
+
+    # Individual PTM distributions
+    plot_histogram_kde(
+        random_ptms,
+        "salmon",
+        "Random Sampling: pTM Distribution",
+        "pTM",
+        "random_ptm_distribution.png",
+    )
+    plot_histogram_kde(
+        zos_ptms,
+        "orange",
+        "Zero-Order Search: pTM Distribution",
+        "pTM",
+        "zos_ptm_distribution.png",
+    )
+
+    # Overlay PLDDT distributions
+    plt.figure(figsize=(8, 5))
+    plt.hist(
+        random_plddts,
+        bins=20,
+        density=True,
+        alpha=0.6,
+        label="Random Sampling",
+        color="skyblue",
+        edgecolor="black",
+    )
+    plt.hist(
+        zos_plddts,
+        bins=20,
+        density=True,
+        alpha=0.6,
+        label="Zero-Order Search",
+        color="lightgreen",
+        edgecolor="black",
+    )
+    x_range = np.linspace(
+        min(np.min(random_plddts), np.min(zos_plddts)),
+        max(np.max(random_plddts), np.max(zos_plddts)),
+        1000,
+    )
+    plt.plot(x_range, gaussian_kde(random_plddts)(x_range), color="blue", lw=2)
+    plt.plot(x_range, gaussian_kde(zos_plddts)(x_range), color="green", lw=2)
+    plt.title("Overlay: PLDDT Distribution")
+    plt.xlabel("PLDDT")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_path / "overlay_plddt_distribution.png")
+    plt.close()
+
+    # Overlay PTM distributions
+    plt.figure(figsize=(8, 5))
+    plt.hist(
+        random_ptms,
+        bins=20,
+        density=True,
+        alpha=0.6,
+        label="Random Sampling",
+        color="salmon",
+        edgecolor="black",
+    )
+    plt.hist(
+        zos_ptms,
+        bins=20,
+        density=True,
+        alpha=0.6,
+        label="Zero-Order Search",
+        color="orange",
+        edgecolor="black",
+    )
+    x_range = np.linspace(
+        min(np.min(random_ptms), np.min(zos_ptms)),
+        max(np.max(random_ptms), np.max(zos_ptms)),
+        1000,
+    )
+    plt.plot(x_range, gaussian_kde(random_ptms)(x_range), color="red", lw=2)
+    plt.plot(x_range, gaussian_kde(zos_ptms)(x_range), color="darkorange", lw=2)
+    plt.title("Overlay: pTM Distribution")
+    plt.xlabel("pTM")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_path / "overlay_ptm_distribution.png")
+    plt.close()
+
+    print(f"Saved all plots to: {save_path}")
 
 
 if __name__ == "__main__":
