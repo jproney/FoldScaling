@@ -486,7 +486,7 @@ class AtomDiffusion(Module):
         # atom position is noise at the beginning
         init_sigma = sigmas[0]
         if custom_noise is not None:
-            atom_coords = custom_noise
+            atom_coords = init_sigma * custom_noise
         else:
             atom_coords = init_sigma * torch.randn(shape, device=self.device)
         atom_coords_denoised = None

@@ -1,4 +1,6 @@
+import json
 import os
+import pathlib
 import pickle
 import urllib.request
 from dataclasses import asdict, dataclass
@@ -6,6 +8,7 @@ from pathlib import Path
 from typing import Literal, Optional
 
 import click
+from matplotlib import pyplot as plt
 import torch
 import numpy as np
 import torch.nn.functional as F
@@ -916,117 +919,6 @@ def predict(
     _boltz_predictions = predictions
 
 
-
-@cli.command()
-@click.argument("data", type=click.Path(exists=True))
-@click.option(
-    "--out_dir",
-    type=click.Path(exists=False),
-    help="The path where to save the predictions.",
-    default="./",
-)
-@click.option(
-    "--cache",
-    type=click.Path(exists=False),
-    help="The directory where to download the data and model. Default is ~/.boltz, or $BOLTZ_CACHE if set.",
-    default=get_cache_path,
-)
-@click.option(
-    "--checkpoint",
-    type=click.Path(exists=True),
-    help="An optional checkpoint, will use the provided Boltz-1 model by default.",
-    default=None,
-)
-@click.option(
-    "--devices",
-    type=int,
-    help="The number of devices to use for prediction. Default is 1.",
-    default=1,
-)
-@click.option(
-    "--accelerator",
-    type=click.Choice(["gpu", "cpu", "tpu"]),
-    help="The accelerator to use for prediction. Default is gpu.",
-    default="gpu",
-)
-@click.option(
-    "--sampling_steps",
-    type=int,
-    help="The number of sampling steps to use for prediction. Default is 200.",
-    default=200,
-)
-@click.option(
-    "--step_scale",
-    type=float,
-    help="The step size is related to the temperature at which the diffusion process samples the distribution."
-    "The lower the higher the diversity among samples (recommended between 1 and 2). Default is 1.638.",
-    default=1.638,
-)
-@click.option(
-    "--write_full_pae",
-    type=bool,
-    is_flag=True,
-    help="Whether to dump the pae into a npz file. Default is True.",
-)
-@click.option(
-    "--write_full_pde",
-    type=bool,
-    is_flag=True,
-    help="Whether to dump the pde into a npz file. Default is False.",
-)
-@click.option(
-    "--output_format",
-    type=click.Choice(["pdb", "mmcif"]),
-    help="The output format to use for the predictions. Default is mmcif.",
-    default="mmcif",
-)
-@click.option(
-    "--num_workers",
-    type=int,
-    help="The number of dataloader workers to use for prediction. Default is 2.",
-    default=2,
-)
-@click.option(
-    "--override",
-    is_flag=True,
-    help="Whether to override existing found predictions. Default is False.",
-)
-@click.option(
-    "--seed",
-    type=int,
-    help="Seed to use for random number generator. Default is None (no seeding).",
-    default=None,
-)
-@click.option(
-    "--use_msa_server",
-    is_flag=True,
-    help="Whether to use the MMSeqs2 server for MSA generation. Default is False.",
-)
-@click.option(
-    "--msa_server_url",
-    type=str,
-    help="MSA server url. Used only if --use_msa_server is set. ",
-    default="https://api.colabfold.com",
-)
-@click.option(
-    "--msa_pairing_strategy",
-    type=str,
-    help="Pairing strategy to use. Used only if --use_msa_server is set. Options are 'greedy' and 'complete'",
-    default="greedy",
-)
-@click.option(
-    "--no_potentials",
-    is_flag=True,
-    help="Whether to not use potentials for steering. Default is False.",
-)
-@click.option(
-    "--num_candidates",
-    type=int,
-    default=8,
-)
-
-
-
 def zero_order_sampling(
     data: str,
     out_dir: str,
@@ -1047,6 +939,10 @@ def zero_order_sampling(
     msa_pairing_strategy: str = "greedy",
     no_potentials: bool = False,
     num_candidates: int = 8,
+    recycling_steps: int = 3,
+    num_iterations: int = 10,
+    confidence_fk: bool = False,
+    diffusion_samples: int = 1,
 ) -> None:
     """Run predictions with Boltz-1."""
     # If cpu, write a friendly warning
@@ -1071,7 +967,7 @@ def zero_order_sampling(
     # Create output directories
     data = Path(data).expanduser()
     out_dir = Path(out_dir).expanduser()
-    out_dir = out_dir / f"boltz_results_{data.stem}"
+    out_dir = out_dir / f"zero_order_{data.stem}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # Download necessary data and model
@@ -1136,9 +1032,9 @@ def zero_order_sampling(
         checkpoint = cache / "boltz1_conf.ckpt"
 
     predict_args = {
-        "recycling_steps": 0,
+        "recycling_steps": recycling_steps,
         "sampling_steps": sampling_steps,
-        "diffusion_samples": 1,
+        "diffusion_samples": diffusion_samples,
         "write_confidence_summary": True,
         "write_full_pae": write_full_pae,
         "write_full_pde": write_full_pde,
@@ -1167,6 +1063,28 @@ def zero_order_sampling(
     )
     model_module.eval()
 
+    if confidence_fk:
+        model_module.steering_args['num_particles']=8
+        model_module.steering_args['fk_lambda']=50
+        model_module.steering_args['fk_resampling_interval']=5
+        model_module.steering_args['guidance_update']=False
+        model_module.steering_args['max_fk_noise'] = 100
+        model_module.steering_args['potential_type'] = "vanilla"
+        model_module.steering_args['noise_coord_potential'] = False
+
+        pot = BoltzConfidencePotential(parameters={
+                'guidance_interval': 5,
+                'guidance_weight': 0.00,
+                'resampling_weight': 1.0,
+                'model' : model_module,
+                'total_particles' : diffusion_samples * model_module.steering_args['num_particles']
+            })
+
+        model_module.predict_args['confidence_potential'] = pot
+        model_module.confidence_module.use_s_diffusion=False
+    else:
+        model_module.predict_args['confidence_potential'] = None
+
     # new code
     batch = next(iter(data_module.predict_dataloader()))
     device = model_module.device
@@ -1180,22 +1098,18 @@ def zero_order_sampling(
     best_score = -float("inf")
     best_out = None
 
-    num_iterations = 10
-    perturbations_per_iter = 4
-    threshold = 0.95
-
     for iteration in tqdm(range(num_iterations), desc="Zero-order optimization"):
         print(f"\n--- Starting Iteration {iteration} ---")
         top_candidate_noise = None
         top_score = -float("inf")
 
         neighbors = generate_protein_neighbors(
-            base_noise, threshold=threshold, num_neighbors=perturbations_per_iter
+            base_noise, num_neighbors=num_candidates
         )
 
         previous_best_score = best_score  # Track the previous best score explicitly
 
-        inner_iter = tqdm(range(perturbations_per_iter), desc=f"Iteration {iteration}", leave=False)
+        inner_iter = tqdm(range(num_candidates), desc=f"Iteration {iteration}", leave=False)
         for i in inner_iter:
             candidate_noise = neighbors[i]
 
@@ -1229,127 +1143,28 @@ def zero_order_sampling(
             print(f"Iteration {iteration}: No improvement, regenerating base noise.")
 
     # Final summary
-    print("\nFinal best PLDDT score:", best_score)
-    writer = BoltzWriter(
+    pred_writer = BoltzWriter(
         data_dir=processed.targets_dir,
         output_dir=out_dir / "predictions",
-        output_format="mmcif",
+        output_format=output_format,
     )
-    writer.on_predict_batch_end(
-        outputs=[best_out],
+    trainer = Trainer(
+        default_root_dir=out_dir,
+        strategy="auto",
+        callbacks=[pred_writer],
+        accelerator=accelerator,
+        devices=devices,
+        precision=32,
+    )
+    pred_writer.on_predict_batch_end(
+        trainer=trainer,
+        pl_module=model_module,
+        outputs=best_out,
         batch=batch,
         batch_idx=0,
         dataloader_idx=0,
     )
     print("Best PLDDT score:", best_score)
-
-@cli.command()
-@click.argument("data", type=click.Path(exists=True))
-@click.option(
-    "--out_dir",
-    type=click.Path(exists=False),
-    help="The path where to save the predictions.",
-    default="./",
-)
-@click.option(
-    "--cache",
-    type=click.Path(exists=False),
-    help="The directory where to download the data and model. Default is ~/.boltz, or $BOLTZ_CACHE if set.",
-    default=get_cache_path,
-)
-@click.option(
-    "--checkpoint",
-    type=click.Path(exists=True),
-    help="An optional checkpoint, will use the provided Boltz-1 model by default.",
-    default=None,
-)
-@click.option(
-    "--devices",
-    type=int,
-    help="The number of devices to use for prediction. Default is 1.",
-    default=1,
-)
-@click.option(
-    "--accelerator",
-    type=click.Choice(["gpu", "cpu", "tpu"]),
-    help="The accelerator to use for prediction. Default is gpu.",
-    default="gpu",
-)
-@click.option(
-    "--sampling_steps",
-    type=int,
-    help="The number of sampling steps to use for prediction. Default is 200.",
-    default=200,
-)
-@click.option(
-    "--step_scale",
-    type=float,
-    help="The step size is related to the temperature at which the diffusion process samples the distribution."
-    "The lower the higher the diversity among samples (recommended between 1 and 2). Default is 1.638.",
-    default=1.638,
-)
-@click.option(
-    "--write_full_pae",
-    type=bool,
-    is_flag=True,
-    help="Whether to dump the pae into a npz file. Default is True.",
-)
-@click.option(
-    "--write_full_pde",
-    type=bool,
-    is_flag=True,
-    help="Whether to dump the pde into a npz file. Default is False.",
-)
-@click.option(
-    "--output_format",
-    type=click.Choice(["pdb", "mmcif"]),
-    help="The output format to use for the predictions. Default is mmcif.",
-    default="mmcif",
-)
-@click.option(
-    "--num_workers",
-    type=int,
-    help="The number of dataloader workers to use for prediction. Default is 2.",
-    default=2,
-)
-@click.option(
-    "--override",
-    is_flag=True,
-    help="Whether to override existing found predictions. Default is False.",
-)
-@click.option(
-    "--seed",
-    type=int,
-    help="Seed to use for random number generator. Default is None (no seeding).",
-    default=None,
-)
-@click.option(
-    "--use_msa_server",
-    is_flag=True,
-    help="Whether to use the MMSeqs2 server for MSA generation. Default is False.",
-)
-@click.option(
-    "--msa_server_url",
-    type=str,
-    help="MSA server url. Used only if --use_msa_server is set. ",
-    default="https://api.colabfold.com",
-)
-@click.option(
-    "--msa_pairing_strategy",
-    type=str,
-    help="Pairing strategy to use. Used only if --use_msa_server is set. Options are 'greedy' and 'complete'",
-    default="greedy",
-)
-@click.option(
-    "--no_potentials",
-    is_flag=True,
-    help="Whether to not use potentials for steering. Default is False.",
-)
-@click.option(
-    "--num_candidates",
-    type=int,
-    default=8,
-)
 
 
 def random_sampling(
@@ -1372,8 +1187,10 @@ def random_sampling(
     msa_pairing_strategy: str = "greedy",
     no_potentials: bool = False,
     num_candidates: int = 8,
-    num_random_samples: int =10,
-
+    num_random_samples: int = 10,
+    recycling_steps: int = 3,
+    confidence_fk: bool = False,
+    diffusion_samples: int = 1,
 ) -> None:
     """Run random sampling predictions with Boltz-1."""
     torch.set_grad_enabled(False)
@@ -1386,7 +1203,7 @@ def random_sampling(
     cache.mkdir(parents=True, exist_ok=True)
 
     data = Path(data).expanduser()
-    out_dir = Path(out_dir).expanduser() / f"boltz_random_{data.stem}"
+    out_dir = Path(out_dir).expanduser() / f"random_{data.stem}"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     download(cache)
@@ -1428,13 +1245,12 @@ def random_sampling(
         checkpoint = cache / "boltz1_conf.ckpt"
 
     predict_args = {
-        "recycling_steps": 0,
+        "recycling_steps": recycling_steps,
         "sampling_steps": sampling_steps,
-        "diffusion_samples": 1,
+        "diffusion_samples": diffusion_samples,
         "write_confidence_summary": True,
     }
     diffusion_params = BoltzDiffusionParams(step_scale=step_scale)
-
 
     steering_args = BoltzSteeringParams()
     if no_potentials:
@@ -1454,6 +1270,28 @@ def random_sampling(
     )
     model_module.eval()
 
+    if confidence_fk:
+        model_module.steering_args['num_particles'] = 8
+        model_module.steering_args['fk_lambda'] = 50
+        model_module.steering_args['fk_resampling_interval'] = 5
+        model_module.steering_args['guidance_update'] = False
+        model_module.steering_args['max_fk_noise'] = 100
+        model_module.steering_args['potential_type'] = "vanilla"
+        model_module.steering_args['noise_coord_potential'] = False
+
+        pot = BoltzConfidencePotential(parameters={
+            'guidance_interval': 5,
+            'guidance_weight': 0.00,
+            'resampling_weight': 1.0,
+            'model': model_module,
+            'total_particles': diffusion_samples * model_module.steering_args['num_particles']
+        })
+
+        model_module.predict_args['confidence_potential'] = pot
+        model_module.confidence_module.use_s_diffusion = False
+    else:
+        model_module.predict_args['confidence_potential'] = None
+
     batch = next(iter(data_module.predict_dataloader()))
     device = model_module.device
     batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()}
@@ -1468,7 +1306,6 @@ def random_sampling(
         random_noise = torch.randn(noise_shape, device=device)
         model_module.custom_noise = random_noise
         out = model_module.predict_step(batch, batch_idx=0)
-        #score = out["ptm"].item()
         score = out["plddt"].mean().item()
         random_scores.append(score)
         click.echo(f"Sample {i+1}: PLDDT = {score:.4f}")
@@ -1481,15 +1318,186 @@ def random_sampling(
     click.echo(f"Best PLDDT: {best_score:.4f}")
     click.echo(f"Worst PLDDT: {min(random_scores):.4f}")
     click.echo(f"Average PLDDT: {np.mean(random_scores):.4f}")
+    click.echo(f"Difference (Best - Worst): {best_score - min(random_scores):.4f}")
 
-    writer = BoltzWriter(
+    pred_writer = BoltzWriter(
         data_dir=processed.targets_dir,
         output_dir=out_dir / "predictions",
-        output_format="mmcif",
+        output_format=output_format,
     )
-    writer.on_predict_batch_end([best_out], batch, 0, 0)
-
+    trainer = Trainer(
+        default_root_dir=out_dir,
+        strategy="auto",
+        callbacks=[pred_writer],
+        accelerator=accelerator,
+        devices=devices,
+        precision=32,
+    )
+    pred_writer.on_predict_batch_end(
+        trainer=trainer,
+        pl_module=model_module,
+        outputs=best_out,
+        batch=batch,
+        batch_idx=0,
+        dataloader_idx=0,
+    )
     click.echo(f"Best structure written. PLDDT: {best_score:.4f}")
+
+@cli.command()
+@click.option(
+    "--data_dir",
+    type=click.Path(exists=True),
+    help="The path to the directory containing the fasta files.",
+)
+@click.option(
+    "--use_msa",
+    is_flag=True,
+    help="Whether to use the MSA file.",
+    default=False,
+)
+@click.option(
+    "--sampling_steps",
+    type=int,
+    help="The number of sampling steps to use for prediction.",
+    default=100,
+)
+@click.option(
+    "--recycling_steps",
+    type=int,
+    help="The number of recycling steps to use for prediction.",
+    default=0,
+)
+@click.option(
+    "--num_random_samples",
+    type=int,
+    help="The number of random samples to use for prediction.",
+    default=64,
+)
+@click.option(
+    "--num_neighbors",
+    type=int,
+    help="The number of neighbors to use for zero-order search.",
+    default=8,
+)
+@click.option(
+    "--num_iterations",
+    type=int,
+    help="The number of iterations to use for zero-order search.",
+    default=8,
+)
+def monomers_predict(data_dir: str, use_msa: bool, sampling_steps: int, 
+                             recycling_steps: int, num_random_samples: int, num_neighbors: int, num_iterations: int) -> None:
+    """Make sure to run this command inside the data directory."""
+
+    parent_dir = pathlib.Path(data_dir).absolute().parent.parent
+    results_dir = parent_dir / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    out_dir = results_dir / f"boltz_monomers_msa_{use_msa}_sampling_{sampling_steps}_recycling_{recycling_steps}_random_samples_{num_random_samples}_neighbors_{num_neighbors}_iterations_{num_iterations}"
+    out_dir = pathlib.Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    all_fasta_files = list(pathlib.Path(data_dir).glob("*.fasta"))
+
+    if use_msa:
+        fasta_files = [f for f in all_fasta_files if "_no_msa" not in f.name]
+    else:
+        fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
+
+    for fasta in fasta_files:
+        print(f"\n------\nProcessing {fasta}")
+
+        # make a new directory for each fasta file
+        fasta_name = fasta.stem
+        sub_dir = out_dir / fasta_name
+        sub_dir.mkdir(parents=True, exist_ok=True)
+
+        random_sampling(
+            data=str(fasta),
+            out_dir=str(sub_dir),
+            devices=1,
+            accelerator="gpu",
+            sampling_steps=sampling_steps,
+            step_scale=1.638,
+            write_full_pae=True,
+            write_full_pde=False,
+            output_format="mmcif",
+            num_workers=2,
+            override=False,
+            seed=None,
+            use_msa_server=False,
+            no_potentials=True,
+            recycling_steps=recycling_steps,
+            num_random_samples=num_random_samples,
+        )
+
+        zero_order_sampling(
+            data=str(fasta),
+            out_dir=str(sub_dir),
+            devices=1,
+            accelerator="gpu",
+            sampling_steps=sampling_steps,
+            step_scale=1.638,
+            write_full_pae=True,
+            write_full_pde=False,
+            output_format="mmcif",
+            num_workers=2,
+            override=False,
+            seed=None,
+            use_msa_server=False,
+            no_potentials=True,
+            recycling_steps=recycling_steps,
+            num_candidates=num_neighbors,
+            num_iterations=num_iterations,
+        )
+
+
+@cli.command()
+@click.argument("results_root", type=click.Path(exists=True))
+def plot_plddt_diffs(results_root: str):
+
+    root = pathlib.Path(results_root)
+    save_path = root / "plots"
+    save_path.mkdir(parents=True, exist_ok=True)
+    differences = []
+    subdirs = [d for d in root.iterdir() if d.is_dir() and d.name != "plots"]
+
+    # for each protein
+    for subdir in subdirs:
+
+        # find random directory
+        random_dir = next(subdir.glob("random_*"), None)
+        random_predictions = random_dir / "predictions" / subdir.name
+        random_results = next(random_predictions.glob("*.json"), None)
+
+        # find zero-order directory
+        zero_order_dir = next(subdir.glob("zero_order_*"), None)
+        zero_order_predictions = zero_order_dir / "predictions" / subdir.name
+        zero_order_results = next(zero_order_predictions.glob("*.json"), None)
+
+        # Load scores
+        with open(random_results, "r") as f:
+            random_data = json.load(f)
+
+        with open(zero_order_results, "r") as f:
+            zos_data = json.load(f)
+
+        diff = zos_data["complex_plddt"] - random_data["complex_plddt"]
+        differences.append(diff)
+
+    # Plot and save
+    plt.figure(figsize=(8, 5))
+    plt.hist(differences, bins=20, color="skyblue", edgecolor="black")
+    plt.axvline(0, color="red", linestyle="--")
+    plt.title("PLDDT Difference per Monomer (ZOS - Random)")
+    plt.xlabel("Difference in Best PLDDT")
+    plt.ylabel("Number of Monomers")
+    plt.tight_layout()
+
+    plot_file = save_path / "plddt_diff_histogram.png"
+    plt.savefig(plot_file)
+    print(f"Saved histogram to: {plot_file}")
+
 
 if __name__ == "__main__":
     cli()
