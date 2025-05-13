@@ -32,6 +32,7 @@ from boltz.main import (
     BoltzProcessedInput,
 )
 
+
 def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     B, M, C = base_noise.shape
     flattened_dim = M * C
@@ -66,10 +67,12 @@ def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
         neighbors.append(neighbor)
     return torch.stack(neighbors)
 
+
 def plddt_score(out):
     """Calculate the pLDDT score from the output."""
     plddt = out["plddt"].mean(dim=1)
     return plddt
+
 
 def zero_order_sampling(
     data: str,
@@ -325,6 +328,7 @@ def zero_order_sampling(
     )
     print("Best score:", best_score)
 
+
 def random_sampling(
     data: str,
     out_dir: str,
@@ -482,7 +486,9 @@ def random_sampling(
     click.echo(f"Best Score: {best_score.item():.4f}")
     click.echo(f"Worst Score: {min(random_scores).item():.4f}")
     click.echo(f"Average Score: {np.mean([s.item() for s in random_scores]):.4f}")
-    click.echo(f"Difference (Best - Worst): {(best_score - min(random_scores)).item():.4f}")
+    click.echo(
+        f"Difference (Best - Worst): {(best_score - min(random_scores)).item():.4f}"
+    )
 
     pred_writer = BoltzWriter(
         data_dir=processed.targets_dir,
@@ -506,10 +512,12 @@ def random_sampling(
         dataloader_idx=0,
     )
 
+
 @click.group()
 def cli() -> None:
     """Experiments with Boltz-1."""
     return
+
 
 @cli.command()
 @click.option(
@@ -631,6 +639,7 @@ def monomers_predict(
             score_fn=plddt_score,
         )
 
+
 @cli.command()
 @click.option(
     "--data_dir",
@@ -673,33 +682,25 @@ def monomers_single_sample(
     else:
         fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
 
-    # sort in alphabetical order and select first 10 files
     fasta_files = sorted(fasta_files)[:10]
-    sampling_steps = [200, 600, 1000, 1400, 1800, 5000]
+    all_sampling_steps = [200, 600, 1000, 1400, 1800, 5000]
 
-    for steps in sampling_steps:
-
+    for steps in tqdm(all_sampling_steps, desc="Sampling step sets"):
         out_dir = (
             results_dir
             / f"boltz_monomers_msa_{use_msa}_sampling_{steps}_recycling_{recycling_steps}"
         )
-        out_dir = pathlib.Path(out_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        for fasta in tqdm(fasta_files, desc="Processing monomers"):
+        for fasta in tqdm(fasta_files, desc=f"Sampling={steps}", leave=False):
             print(f"\n------\nProcessing {fasta.name}")
-
-            # make a new directory for each fasta file
-            fasta_name = fasta.stem
-            sub_dir = out_dir / fasta_name
-            sub_dir.mkdir(parents=True, exist_ok=True)
 
             random_sampling(
                 data=str(fasta),
-                out_dir=str(sub_dir),
+                out_dir=str(out_dir),
                 devices=1,
                 accelerator="gpu",
-                sampling_steps=sampling_steps,
+                sampling_steps=steps,
                 step_scale=1.638,
                 write_full_pae=True,
                 write_full_pde=False,
@@ -713,6 +714,7 @@ def monomers_single_sample(
                 num_random_samples=1,
                 score_fn=plddt_score,
             )
+
 
 @cli.command()
 @click.argument("results_root", type=click.Path(exists=True))
@@ -893,6 +895,7 @@ def plot_results(results_root: str):
     plt.close()
 
     print(f"Saved all plots to: {save_path}")
+
 
 if __name__ == "__main__":
     cli()
