@@ -13,6 +13,7 @@ import torch.nn.functional as F
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.strategies import DDPStrategy
 from tqdm import tqdm
+from typing import Callable
 
 from boltz.data.module.inference import BoltzInferenceDataModule
 from boltz.data.types import Manifest
@@ -67,6 +68,11 @@ def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     return torch.stack(neighbors)
 
 
+def plddt_score(out):
+    """Calculate the pLDDT score from the output."""
+    plddt = out["plddt"].mean(dim=1)
+    return plddt
+
 def zero_order_sampling(
     data: str,
     out_dir: str,
@@ -91,6 +97,7 @@ def zero_order_sampling(
     num_iterations: int = 10,
     confidence_fk: bool = False,
     diffusion_samples: int = 1,
+    score_fn: Callable = plddt_score,
 ) -> None:
     """Run predictions with Boltz-1."""
     # If cpu, write a friendly warning
@@ -269,9 +276,9 @@ def zero_order_sampling(
             # Set custom noise
             model_module.custom_noise = candidate_noise
             out = model_module.predict_step(batch, batch_idx=0)
-            score = out["plddt"].mean().item()
+            score = score_fn(out)
 
-            inner_iter.set_postfix(PLDDT=f"{score:.3f}", refresh=True)
+            inner_iter.set_postfix(**{score_fn.__name__: f"{score:.3f}"}, refresh=True)
 
             # Find best candidate this iteration
             if score > top_score:
@@ -317,7 +324,7 @@ def zero_order_sampling(
         batch_idx=0,
         dataloader_idx=0,
     )
-    print("Best PLDDT score:", best_score)
+    print("Best score:", best_score)
 
 
 def random_sampling(
@@ -344,6 +351,7 @@ def random_sampling(
     recycling_steps: int = 3,
     confidence_fk: bool = False,
     diffusion_samples: int = 1,
+    score_fn: Callable = plddt_score,
 ) -> None:
     """Run random sampling predictions with Boltz-1."""
     torch.set_grad_enabled(False)
@@ -464,18 +472,18 @@ def random_sampling(
         random_noise = torch.randn(noise_shape, device=device)
         model_module.custom_noise = random_noise
         out = model_module.predict_step(batch, batch_idx=0)
-        score = out["plddt"].mean().item()
+        score = score_fn(out)
         random_scores.append(score)
-        click.echo(f"Sample {i+1}: PLDDT = {score:.4f}")
+        click.echo(f"Sample {i+1}: Score = {score:.4f}")
 
         if score > best_score:
             best_score = score
             best_out = out
 
     click.echo("\nRandom Sampling Summary:")
-    click.echo(f"Best PLDDT: {best_score:.4f}")
-    click.echo(f"Worst PLDDT: {min(random_scores):.4f}")
-    click.echo(f"Average PLDDT: {np.mean(random_scores):.4f}")
+    click.echo(f"Best Score: {best_score:.4f}")
+    click.echo(f"Worst Score: {min(random_scores):.4f}")
+    click.echo(f"Average Score: {np.mean(random_scores):.4f}")
     click.echo(f"Difference (Best - Worst): {best_score - min(random_scores):.4f}")
 
     pred_writer = BoltzWriter(
@@ -499,7 +507,6 @@ def random_sampling(
         batch_idx=0,
         dataloader_idx=0,
     )
-    click.echo(f"Best structure written. PLDDT: {best_score:.4f}")
 
 
 @click.group()
@@ -604,6 +611,7 @@ def monomers_predict(
             no_potentials=True,
             recycling_steps=recycling_steps,
             num_random_samples=num_random_samples,
+            score_fn=plddt_score,
         )
 
         zero_order_sampling(
@@ -624,6 +632,7 @@ def monomers_predict(
             recycling_steps=recycling_steps,
             num_candidates=num_neighbors,
             num_iterations=num_iterations,
+            score_fn=plddt_score,
         )
 
 
