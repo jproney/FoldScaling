@@ -40,6 +40,7 @@ _boltz_predictions = None
 _boltz_module = None
 _boltz_inputs = None
 
+
 @dataclass
 class BoltzProcessedInput:
     """Processed input data."""
@@ -109,49 +110,49 @@ class BoltzSteeringParams:
     num_gd_steps: int = 16
 
 
-
 """
 Class for FK guidance with confidence module as guiding potential
 """
 
+
 class BoltzConfidencePotential(Potential):
 
     def compute_args(self, feats, params):
-        return None, (), None # dummy return vals
-    
+        return None, (), None  # dummy return vals
+
     def compute_variable(self, coords, index, compute_gradient=False):
 
-            
-        conf_out = self.parameters['model'].confidence_module(
-                s_inputs=self.parameters['trunk_out']['s_trunk'],
-                s=self.parameters['trunk_out']['s_trunk'],
-                z=self.parameters['trunk_out']['z_trunk'],
-                s_diffusion=None,
-                x_pred=coords,
-                feats=self.parameters['trunk_out']['feats'],
-                pred_distogram_logits=self.parameters['trunk_out']["pdistogram"],
-                multiplicity=self.parameters['total_particles'],
-                run_sequentially=False
-            )
+        conf_out = self.parameters["model"].confidence_module(
+            s_inputs=self.parameters["trunk_out"]["s_trunk"],
+            s=self.parameters["trunk_out"]["s_trunk"],
+            z=self.parameters["trunk_out"]["z_trunk"],
+            s_diffusion=None,
+            x_pred=coords,
+            feats=self.parameters["trunk_out"]["feats"],
+            pred_distogram_logits=self.parameters["trunk_out"]["pdistogram"],
+            multiplicity=self.parameters["total_particles"],
+            run_sequentially=False,
+        )
 
-        conf_score = (4*conf_out['complex_plddt'] + conf_out['ptm']) / 5
-        conf_score = conf_score.unsqueeze(-1) # this is important because it expects the energy to have many contributions from different indices
+        conf_score = (4 * conf_out["complex_plddt"] + conf_out["ptm"]) / 5
+        conf_score = conf_score.unsqueeze(
+            -1
+        )  # this is important because it expects the energy to have many contributions from different indices
 
         print(conf_score)
         if not compute_gradient:
             return conf_score
 
-        return conf_score, torch.zeros_like(coords) # we can't get a gradient because the prediction is turned into a binned dgram
-        
+        return conf_score, torch.zeros_like(
+            coords
+        )  # we can't get a gradient because the prediction is turned into a binned dgram
 
     def compute_function(self, value, compute_derivative=False):
-        nrg = 1-value
+        nrg = 1 - value
         if not compute_derivative:
             return nrg
-        
-        return nrg, -value
 
-        
+        return nrg, -value
 
 
 @rank_zero_only
@@ -276,21 +277,27 @@ def check_inputs(
 
     return data
 
+
 def generate_neighbors(x, threshold=0.95, num_neighbors=4):
     """Courtesy: Willis Ma"""
     rng = np.random.Generator(np.random.PCG64())
     x_f = x.flatten(1)
-    x_norm = torch.linalg.norm(x_f, dim=-1, keepdim=True, dtype=torch.float64).unsqueeze(-2)
+    x_norm = torch.linalg.norm(
+        x_f, dim=-1, keepdim=True, dtype=torch.float64
+    ).unsqueeze(-2)
     u = x_f.unsqueeze(-2) / x_norm.clamp_min(1e-12)
-    v = torch.from_numpy(rng.standard_normal(size=(u.shape[0], num_neighbors, u.shape[-1]), dtype=np.float64)).to(
-        u.device
-    )
+    v = torch.from_numpy(
+        rng.standard_normal(
+            size=(u.shape[0], num_neighbors, u.shape[-1]), dtype=np.float64
+        )
+    ).to(u.device)
     w = F.normalize(v - (v @ u.transpose(-2, -1)) * u, dim=-1)
     return (
         (x_norm * (threshold * u + np.sqrt(1 - threshold**2) * w))
         .reshape(x.shape[0], num_neighbors, *x.shape[1:])
         .to(x.dtype)
     )
+
 
 def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     B, M, C = base_noise.shape
@@ -300,7 +307,9 @@ def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     base_flat = base_noise.view(B, flattened_dim)  # [B, D], D=M*C
 
     # Generate random Gaussian noise
-    random_noise = torch.randn(num_neighbors, B, flattened_dim, device=base_noise.device)
+    random_noise = torch.randn(
+        num_neighbors, B, flattened_dim, device=base_noise.device
+    )
 
     # Project onto sphere defined by cosine similarity threshold
     base_norm = F.normalize(base_flat, dim=-1)  # [B, D]
@@ -313,7 +322,11 @@ def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
         noise_orthogonal = random_noise - proj
         noise_orthogonal_normed = F.normalize(noise_orthogonal, dim=-1)
 
-        neighbor_flat = threshold * base_norm + torch.sqrt(torch.tensor(1 - threshold**2, device=base_noise.device)) * noise_orthogonal_normed
+        neighbor_flat = (
+            threshold * base_norm
+            + torch.sqrt(torch.tensor(1 - threshold**2, device=base_noise.device))
+            * noise_orthogonal_normed
+        )
         neighbor_flat_scaled = neighbor_flat * base_flat.norm(dim=-1, keepdim=True)
 
         neighbor = neighbor_flat_scaled.view(B, M, C)
@@ -736,7 +749,7 @@ def predict(
     msa_pairing_strategy: str = "greedy",
     no_potentials: bool = False,
     skip_pred: bool = False,
-    confidence_fk: bool = False
+    confidence_fk: bool = False,
 ) -> None:
     """Run predictions with Boltz-1."""
     global _boltz_predictions
@@ -811,9 +824,11 @@ def predict(
         manifest=Manifest.load(processed_dir / "manifest.json"),
         targets_dir=processed_dir / "structures",
         msa_dir=processed_dir / "msa",
-        constraints_dir=(processed_dir / "constraints")
-        if (processed_dir / "constraints").exists()
-        else None,
+        constraints_dir=(
+            (processed_dir / "constraints")
+            if (processed_dir / "constraints").exists()
+            else None
+        ),
     )
 
     # Create data module
@@ -848,7 +863,6 @@ def predict(
         steering_args.fk_steering = False
         steering_args.guidance_update = False
 
-
     model_module: Boltz1 = Boltz1.load_from_checkpoint(
         checkpoint,
         strict=True,
@@ -863,27 +877,29 @@ def predict(
     model_module.eval()
 
     if confidence_fk:
-        model_module.steering_args['num_particles']=8
-        model_module.steering_args['fk_lambda']=50
-        model_module.steering_args['fk_resampling_interval']=5
-        model_module.steering_args['guidance_update']=False
-        model_module.steering_args['max_fk_noise'] = 100
-        model_module.steering_args['potential_type'] = "vanilla"
-        model_module.steering_args['noise_coord_potential'] = False
+        model_module.steering_args["num_particles"] = 8
+        model_module.steering_args["fk_lambda"] = 50
+        model_module.steering_args["fk_resampling_interval"] = 5
+        model_module.steering_args["guidance_update"] = False
+        model_module.steering_args["max_fk_noise"] = 100
+        model_module.steering_args["potential_type"] = "vanilla"
+        model_module.steering_args["noise_coord_potential"] = False
 
-        pot = BoltzConfidencePotential(parameters={
-                'guidance_interval': 5,
-                'guidance_weight': 0.00,
-                'resampling_weight': 1.0,
-                'model' : model_module,
-                'total_particles' : diffusion_samples * model_module.steering_args['num_particles']
-            })
+        pot = BoltzConfidencePotential(
+            parameters={
+                "guidance_interval": 5,
+                "guidance_weight": 0.00,
+                "resampling_weight": 1.0,
+                "model": model_module,
+                "total_particles": diffusion_samples
+                * model_module.steering_args["num_particles"],
+            }
+        )
 
-        model_module.predict_args['confidence_potential'] = pot
-        model_module.confidence_module.use_s_diffusion=False
+        model_module.predict_args["confidence_potential"] = pot
+        model_module.confidence_module.use_s_diffusion = False
     else:
-        model_module.predict_args['confidence_potential'] = None
-
+        model_module.predict_args["confidence_potential"] = None
 
     # Create prediction writer
     pred_writer = BoltzWriter(
@@ -1013,9 +1029,11 @@ def zero_order_sampling(
         manifest=Manifest.load(processed_dir / "manifest.json"),
         targets_dir=processed_dir / "structures",
         msa_dir=processed_dir / "msa",
-        constraints_dir=(processed_dir / "constraints")
-        if (processed_dir / "constraints").exists()
-        else None,
+        constraints_dir=(
+            (processed_dir / "constraints")
+            if (processed_dir / "constraints").exists()
+            else None
+        ),
     )
 
     # Create data module
@@ -1064,26 +1082,29 @@ def zero_order_sampling(
     model_module.eval()
 
     if confidence_fk:
-        model_module.steering_args['num_particles']=8
-        model_module.steering_args['fk_lambda']=50
-        model_module.steering_args['fk_resampling_interval']=5
-        model_module.steering_args['guidance_update']=False
-        model_module.steering_args['max_fk_noise'] = 100
-        model_module.steering_args['potential_type'] = "vanilla"
-        model_module.steering_args['noise_coord_potential'] = False
+        model_module.steering_args["num_particles"] = 8
+        model_module.steering_args["fk_lambda"] = 50
+        model_module.steering_args["fk_resampling_interval"] = 5
+        model_module.steering_args["guidance_update"] = False
+        model_module.steering_args["max_fk_noise"] = 100
+        model_module.steering_args["potential_type"] = "vanilla"
+        model_module.steering_args["noise_coord_potential"] = False
 
-        pot = BoltzConfidencePotential(parameters={
-                'guidance_interval': 5,
-                'guidance_weight': 0.00,
-                'resampling_weight': 1.0,
-                'model' : model_module,
-                'total_particles' : diffusion_samples * model_module.steering_args['num_particles']
-            })
+        pot = BoltzConfidencePotential(
+            parameters={
+                "guidance_interval": 5,
+                "guidance_weight": 0.00,
+                "resampling_weight": 1.0,
+                "model": model_module,
+                "total_particles": diffusion_samples
+                * model_module.steering_args["num_particles"],
+            }
+        )
 
-        model_module.predict_args['confidence_potential'] = pot
-        model_module.confidence_module.use_s_diffusion=False
+        model_module.predict_args["confidence_potential"] = pot
+        model_module.confidence_module.use_s_diffusion = False
     else:
-        model_module.predict_args['confidence_potential'] = None
+        model_module.predict_args["confidence_potential"] = None
 
     # new code
     batch = next(iter(data_module.predict_dataloader()))
@@ -1103,13 +1124,13 @@ def zero_order_sampling(
         top_candidate_noise = None
         top_score = -float("inf")
 
-        neighbors = generate_protein_neighbors(
-            base_noise, num_neighbors=num_candidates
-        )
+        neighbors = generate_protein_neighbors(base_noise, num_neighbors=num_candidates)
 
         previous_best_score = best_score  # Track the previous best score explicitly
 
-        inner_iter = tqdm(range(num_candidates), desc=f"Iteration {iteration}", leave=False)
+        inner_iter = tqdm(
+            range(num_candidates), desc=f"Iteration {iteration}", leave=False
+        )
         for i in inner_iter:
             candidate_noise = neighbors[i]
 
@@ -1228,9 +1249,11 @@ def random_sampling(
         manifest=Manifest.load(processed_dir / "manifest.json"),
         targets_dir=processed_dir / "structures",
         msa_dir=processed_dir / "msa",
-        constraints_dir=(processed_dir / "constraints")
-        if (processed_dir / "constraints").exists()
-        else None,
+        constraints_dir=(
+            (processed_dir / "constraints")
+            if (processed_dir / "constraints").exists()
+            else None
+        ),
     )
 
     data_module = BoltzInferenceDataModule(
@@ -1271,26 +1294,29 @@ def random_sampling(
     model_module.eval()
 
     if confidence_fk:
-        model_module.steering_args['num_particles'] = 8
-        model_module.steering_args['fk_lambda'] = 50
-        model_module.steering_args['fk_resampling_interval'] = 5
-        model_module.steering_args['guidance_update'] = False
-        model_module.steering_args['max_fk_noise'] = 100
-        model_module.steering_args['potential_type'] = "vanilla"
-        model_module.steering_args['noise_coord_potential'] = False
+        model_module.steering_args["num_particles"] = 8
+        model_module.steering_args["fk_lambda"] = 50
+        model_module.steering_args["fk_resampling_interval"] = 5
+        model_module.steering_args["guidance_update"] = False
+        model_module.steering_args["max_fk_noise"] = 100
+        model_module.steering_args["potential_type"] = "vanilla"
+        model_module.steering_args["noise_coord_potential"] = False
 
-        pot = BoltzConfidencePotential(parameters={
-            'guidance_interval': 5,
-            'guidance_weight': 0.00,
-            'resampling_weight': 1.0,
-            'model': model_module,
-            'total_particles': diffusion_samples * model_module.steering_args['num_particles']
-        })
+        pot = BoltzConfidencePotential(
+            parameters={
+                "guidance_interval": 5,
+                "guidance_weight": 0.00,
+                "resampling_weight": 1.0,
+                "model": model_module,
+                "total_particles": diffusion_samples
+                * model_module.steering_args["num_particles"],
+            }
+        )
 
-        model_module.predict_args['confidence_potential'] = pot
+        model_module.predict_args["confidence_potential"] = pot
         model_module.confidence_module.use_s_diffusion = False
     else:
-        model_module.predict_args['confidence_potential'] = None
+        model_module.predict_args["confidence_potential"] = None
 
     batch = next(iter(data_module.predict_dataloader()))
     device = model_module.device
@@ -1343,6 +1369,7 @@ def random_sampling(
     )
     click.echo(f"Best structure written. PLDDT: {best_score:.4f}")
 
+
 @cli.command()
 @click.option(
     "--data_dir",
@@ -1385,15 +1412,25 @@ def random_sampling(
     help="The number of iterations to use for zero-order search.",
     default=8,
 )
-def monomers_predict(data_dir: str, use_msa: bool, sampling_steps: int, 
-                             recycling_steps: int, num_random_samples: int, num_neighbors: int, num_iterations: int) -> None:
+def monomers_predict(
+    data_dir: str,
+    use_msa: bool,
+    sampling_steps: int,
+    recycling_steps: int,
+    num_random_samples: int,
+    num_neighbors: int,
+    num_iterations: int,
+) -> None:
     """Make sure to run this command inside the data directory."""
 
     parent_dir = pathlib.Path(data_dir).absolute().parent.parent
     results_dir = parent_dir / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
-    out_dir = results_dir / f"boltz_monomers_msa_{use_msa}_sampling_{sampling_steps}_recycling_{recycling_steps}_random_samples_{num_random_samples}_neighbors_{num_neighbors}_iterations_{num_iterations}"
+    out_dir = (
+        results_dir
+        / f"boltz_monomers_msa_{use_msa}_sampling_{sampling_steps}_recycling_{recycling_steps}_random_samples_{num_random_samples}_neighbors_{num_neighbors}_iterations_{num_iterations}"
+    )
     out_dir = pathlib.Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -1404,8 +1441,8 @@ def monomers_predict(data_dir: str, use_msa: bool, sampling_steps: int,
     else:
         fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
 
-    for fasta in fasta_files:
-        print(f"\n------\nProcessing {fasta}")
+    for fasta in tqdm(fasta_files, desc="Processing monomers"):
+        print(f"\n------\nProcessing {fasta.name}")
 
         # make a new directory for each fasta file
         fasta_name = fasta.stem
@@ -1455,16 +1492,14 @@ def monomers_predict(data_dir: str, use_msa: bool, sampling_steps: int,
 @cli.command()
 @click.argument("results_root", type=click.Path(exists=True))
 def plot_plddt_diffs(results_root: str):
-
     root = pathlib.Path(results_root)
     save_path = root / "plots"
     save_path.mkdir(parents=True, exist_ok=True)
     differences = []
+
     subdirs = [d for d in root.iterdir() if d.is_dir() and d.name != "plots"]
 
-    # for each protein
-    for subdir in subdirs:
-
+    for subdir in tqdm(subdirs, desc="Comparing ZOS vs Random"):
         # find random directory
         random_dir = next(subdir.glob("random_*"), None)
         random_predictions = random_dir / "predictions" / subdir.name
@@ -1478,7 +1513,6 @@ def plot_plddt_diffs(results_root: str):
         # Load scores
         with open(random_results, "r") as f:
             random_data = json.load(f)
-
         with open(zero_order_results, "r") as f:
             zos_data = json.load(f)
 
