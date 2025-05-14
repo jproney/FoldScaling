@@ -21,6 +21,8 @@ from boltz.data.types import Manifest
 from boltz.data.write.writer import BoltzWriter
 from boltz.model.model import Boltz1
 import shutil
+from Bio.PDB.MMCIFParser import MMCIFParser
+from scipy.spatial.distance import cdist
 
 from boltz.main import (
     BoltzConfidencePotential,
@@ -1240,6 +1242,130 @@ def table_monomers_predict(results_root: str):
     print("----------------------------------------")
     summarize("Random", random_plddt, random_ptm, random_conf)
     summarize("Zero-Order", zos_plddt, zos_ptm, zos_conf)
+
+
+def extract_coords_from_cif(file_path):
+    parser = MMCIFParser()
+    structure = parser.get_structure('protein', file_path)
+
+    residues = [res for res in structure.get_residues() if 'CA' in res]
+    coords = np.array([res['CA'].get_coord() for res in residues])
+    residue_ids = [res.get_id()[1] for res in residues]
+
+    return coords, residue_ids
+
+def align_coords(coords_pred, ids_pred, coords_true, ids_true):
+    common_ids = sorted(set(ids_pred) & set(ids_true))
+    idx_pred = [ids_pred.index(i) for i in common_ids]
+    idx_true = [ids_true.index(i) for i in common_ids]
+    return coords_pred[idx_pred], coords_true[idx_true]
+
+def compute_lddt(cif_pred, cif_true, cutoff=15.0, per_atom=False):
+    # Extract coordinates and residue IDs
+    coords_pred, ids_pred = extract_coords_from_cif(cif_pred)
+    coords_true, ids_true = extract_coords_from_cif(cif_true)
+
+    # Align coordinates by residue IDs
+    coords_pred_aligned, coords_true_aligned = align_coords(coords_pred, ids_pred, coords_true, ids_true)
+
+    # Convert to distance matrices
+    dmat_pred = torch.tensor(cdist(coords_pred_aligned, coords_pred_aligned))
+    dmat_true = torch.tensor(cdist(coords_true_aligned, coords_true_aligned))
+
+    # Compute mask (excluding self-distances)
+    n_atoms = dmat_true.shape[0]
+    mask = 1 - torch.eye(n_atoms)
+
+    return lddt_dist(dmat_pred, dmat_true, mask, cutoff, per_atom)
+
+# Provided lddt_dist function
+def lddt_dist(dmat_predicted, dmat_true, mask, cutoff=15.0, per_atom=False):
+    dists_to_score = (dmat_true < cutoff).float() * mask
+    dist_l1 = torch.abs(dmat_true - dmat_predicted)
+
+    score = 0.25 * (
+        (dist_l1 < 0.5).float()
+        + (dist_l1 < 1.0).float()
+        + (dist_l1 < 2.0).float()
+        + (dist_l1 < 4.0).float()
+    )
+
+    if per_atom:
+        mask_no_match = torch.sum(dists_to_score, dim=-1) != 0
+        norm = 1.0 / (1e-10 + torch.sum(dists_to_score, dim=-1))
+        score = norm * (1e-10 + torch.sum(dists_to_score * score, dim=-1))
+        return score, mask_no_match.float()
+    else:
+        norm = 1.0 / (1e-10 + torch.sum(dists_to_score, dim=(-2, -1)))
+        score = norm * (1e-10 + torch.sum(dists_to_score * score, dim=(-2, -1)))
+        total = torch.sum(dists_to_score, dim=(-1, -2))
+        return score.item(), total.item()
+
+
+@cli.command()
+@click.option(
+    "--results_dir",
+    type=click.Path(exists=True),
+    help="The path to the directory containing the fasta files.",
+)
+@click.option(
+    "--gt_dir",
+    type=click.Path(exists=True),
+    help="The path to the directory containing the ground truth files.",
+)
+def run_lddt(results_dir: str, gt_dir: str):
+    """
+    Assumes that the number of monomers are the same in both directories.
+    """
+    root_dir = pathlib.Path(results_dir)
+    gt_dir = pathlib.Path(gt_dir)
+
+    # sort directories by name
+    monomer_dirs = sorted(
+        [d for d in root_dir.iterdir() if d.is_dir() and d.name != "plots"],
+        key=lambda x: x.name,
+    )
+    print("Monomer directories: " + str([monomer.name.split("_")[0] for monomer in monomer_dirs]))
+
+    gt_dirs = sorted(
+        [d for d in gt_dir.iterdir() if d.name != "plots" and d.name != ".DS_Store"],
+        key=lambda x: x.name,
+    )
+    print("Ground truth directories: " + str([monomer.name for monomer in gt_dirs]))
+
+    for monomer_dir, monomer in zip(monomer_dirs, gt_dirs):
+        if not monomer_dir.is_dir() or monomer_dir.name == "plots":
+            continue
+
+        # random
+        pred_dir = monomer_dir / pathlib.Path("random_" + monomer_dir.name) / "predictions" / monomer_dir.name
+        random_cif = next(pred_dir.glob("*.cif"))
+
+        random_json = next(pred_dir.glob("*.json"))
+        with open(random_json, "r") as f:
+            data = json.load(f)
+        random_plddt = float(data["complex_plddt"])
+
+        # zero-order
+        pred_dir = monomer_dir / pathlib.Path("zero_order_" + monomer_dir.name) / "predictions" / monomer_dir.name
+        zero_order_cif = next(pred_dir.glob("*.cif"))
+
+        zero_order_json = next(pred_dir.glob("*.json"))
+        with open(zero_order_json, "r") as f:
+            data = json.load(f)
+        zero_order_plddt = float(data["complex_plddt"])
+
+        print(f"\n------\nProcessing {monomer_dir.name},{monomer.name}")
+
+        # Compute LDDT
+        random_lddt = compute_lddt(random_cif, monomer)
+        zero_order_lddt = compute_lddt(zero_order_cif, monomer)
+
+        print(f"Random LDDT for {monomer_dir.name}: {random_lddt}")
+        print(f"Random pLDDT for {monomer_dir.name}: {random_plddt}")
+
+        print(f"Zero-Order LDDT for {monomer_dir.name}: {zero_order_lddt}")
+        print(f"Zero-Order pLDDT for {monomer_dir.name}: {zero_order_plddt}")
 
 
 @cli.command()
