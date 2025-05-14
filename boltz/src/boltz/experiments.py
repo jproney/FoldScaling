@@ -899,10 +899,24 @@ def monomers_predict(
     help="The number of recycling steps to use for prediction.",
     default=0,
 )
+@click.option(
+    "--num_monomers",
+    type=int,
+    help="The number of monomers to use for prediction.",
+    default=50,
+)
+@click.option(
+    "--denoising_steps",
+    type=int,
+    help="The number of denoising steps to use for prediction.",
+    default=200,
+)
 def monomers_single_sample(
     data_dir: str,
     use_msa: bool,
     recycling_steps: int,
+    num_monomers: int,
+    denoising_steps: int,
 ) -> None:
     """Make sure to run this command inside the data directory."""
 
@@ -917,43 +931,39 @@ def monomers_single_sample(
         fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
 
     # sort in alphabetical order and select first 10 files
-    fasta_files = sorted(fasta_files)[:10]
-    sampling_steps = [200, 600, 1000, 1400, 1800, 5000]
+    fasta_files = sorted(fasta_files)[:num_monomers]
 
-    for steps in sampling_steps:
+    out_dir = (
+        results_dir
+        / f"boltz_monomers_msa_{use_msa}_denoising_{denoising_steps}_recycling_{recycling_steps}"
+    )
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-        out_dir = (
-            results_dir
-            / f"boltz_monomers_msa_{use_msa}_sampling_{steps}_recycling_{recycling_steps}"
+    for fasta in tqdm(fasta_files, desc=f"Sampling={denoising_steps}", leave=False):
+        print(f"\n------\nProcessing {fasta.name}")
+
+        random_sampling(
+            data=str(fasta),
+            out_dir=str(out_dir),
+            devices=1,
+            accelerator="gpu",
+            sampling_steps=denoising_steps,
+            step_scale=1.638,
+            write_full_pae=True,
+            write_full_pde=False,
+            output_format="mmcif",
+            num_workers=2,
+            override=False,
+            seed=None,
+            use_msa_server=False,
+            no_potentials=True,
+            recycling_steps=recycling_steps,
+            num_random_samples=1,
+            score_fn=plddt_score,
         )
-        out_dir.mkdir(parents=True, exist_ok=True)
 
-        for fasta in tqdm(fasta_files, desc=f"Sampling={steps}", leave=False):
-            print(f"\n------\nProcessing {fasta.name}")
-
-            random_sampling(
-                data=str(fasta),
-                out_dir=str(out_dir),
-                devices=1,
-                accelerator="gpu",
-                sampling_steps=steps,
-                step_scale=1.638,
-                write_full_pae=True,
-                write_full_pde=False,
-                output_format="mmcif",
-                num_workers=2,
-                override=False,
-                seed=None,
-                use_msa_server=False,
-                no_potentials=True,
-                recycling_steps=recycling_steps,
-                num_random_samples=1,
-                score_fn=plddt_score,
-            )
-
-            # Free up memory after each fasta file
-            torch.cuda.empty_cache()
-            gc.collect()
+        torch.cuda.empty_cache()
+        gc.collect()
 
 
 @cli.command()
