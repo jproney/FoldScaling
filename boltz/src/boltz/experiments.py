@@ -990,6 +990,63 @@ def table_single_sample(results_root: str):
 
 @cli.command()
 @click.argument("results_root", type=click.Path(exists=True))
+def table_monomers_predict(results_root: str):
+    """
+    Compute average pLDDT, pTM, and confidence score for all monomers.
+    Separates results for random sampling and zero-order search.
+    """
+    root = pathlib.Path(results_root)
+    random_plddt, random_ptm, random_conf = [], [], []
+    zos_plddt, zos_ptm, zos_conf = [], [], []
+
+    # sort directories by name
+    monomer_dirs = sorted(
+        [d for d in root.iterdir() if d.is_dir() and d.name != "plots"],
+        key=lambda x: x.name,
+    )
+    monomer_dirs = monomer_dirs[:10] # take the first 10 directories
+
+    for monomer_dir in monomer_dirs:
+        if not monomer_dir.is_dir() or monomer_dir.name == "plots":
+            continue
+
+        # random
+        pred_dir = monomer_dir / pathlib.Path("random_" + monomer_dir.name) / "predictions" / monomer_dir.name
+        random_json = next(pred_dir.glob("*.json"))
+
+        with open(random_json, "r") as f:
+            data = json.load(f)
+        random_plddt.append(float(data["complex_plddt"]))
+        random_ptm.append(float(data["ptm"]))
+        random_conf.append(float(data["confidence_score"]))
+
+        # zero-order
+        pred_dir = monomer_dir / pathlib.Path("zero_order_" + monomer_dir.name) / "predictions" / monomer_dir.name
+        random_json = next(pred_dir.glob("*.json"))
+
+        with open(random_json, "r") as f:
+            data = json.load(f)
+        zos_plddt.append(float(data["complex_plddt"]))
+        zos_ptm.append(float(data["ptm"]))
+        zos_conf.append(float(data["confidence_score"]))
+
+    def summarize(name, plddt_list, ptm_list, conf_list):
+        if not plddt_list:
+            print(f"{name} — No data.")
+            return
+        avg_plddt = np.mean(plddt_list)
+        avg_ptm = np.mean(ptm_list)
+        avg_conf = np.mean(conf_list)
+        print(f"{name:<12} | pLDDT: {avg_plddt:.4f} | pTM: {avg_ptm:.4f} | Confidence: {avg_conf:.4f}")
+
+    print("\nSummary of Averages Across All Monomers")
+    print("----------------------------------------")
+    summarize("Random", random_plddt, random_ptm, random_conf)
+    summarize("Zero-Order", zos_plddt, zos_ptm, zos_conf)
+
+
+@cli.command()
+@click.argument("results_root", type=click.Path(exists=True))
 def plot_single_sample_dist(results_root: str):
     """
     Plot pLDDT distributions for each sampling step experiment.
