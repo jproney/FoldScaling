@@ -330,6 +330,184 @@ def zero_order_sampling(
     )
     print("Best score:", best_score)
 
+def search_over_paths(
+    data: str,
+    out_dir: str,
+    cache: str = "~/.boltz",
+    checkpoint: Optional[str] = None,
+    devices: int = 1,
+    accelerator: str = "gpu",
+    sampling_steps: int = 200,
+    step_scale: float = 1.638,
+    output_format: Literal["pdb", "mmcif"] = "mmcif",
+    num_workers: int = 2,
+    seed: Optional[int] = None,
+    recycling_steps: int = 3,
+    diffusion_samples: int = 1,
+    num_initial_paths: int = 4,
+    path_width: int = 5,
+    search_start_sigma: float = 10.0,
+    backward_stepsize: float = 0.5,
+    forward_stepsize: float = 0.5,
+    diffusion_solver_steps: int = 50,
+    use_msa_server: bool = False,
+    msa_server_url: str = "https://api.colabfold.com",
+    msa_pairing_strategy: str = "greedy",
+    no_potentials: bool = True,
+    confidence_fk: bool = False,
+    device="cuda"
+):
+    torch.set_grad_enabled(False)
+    torch.set_float32_matmul_precision("highest")
+
+    if seed is not None:
+        seed_everything(seed)
+
+    cache = Path(cache).expanduser()
+    cache.mkdir(parents=True, exist_ok=True)
+
+    data = Path(data).expanduser()
+    out_dir = Path(out_dir).expanduser() / f"search_over_paths_{data.stem}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Download necessary data and model
+    download(cache)
+
+    data = check_inputs(data, out_dir)
+    if not data:
+        click.echo("No predictions to run, exiting.")
+        return
+
+    ccd_path = cache / "ccd.pkl"
+    process_inputs(
+        data=data,
+        out_dir=out_dir,
+        ccd_path=ccd_path,
+        use_msa_server=use_msa_server,
+        msa_server_url=msa_server_url,
+        msa_pairing_strategy=msa_pairing_strategy,
+    )
+
+    processed_dir = out_dir / "processed"
+    processed = BoltzProcessedInput(
+        manifest=Manifest.load(processed_dir / "manifest.json"),
+        targets_dir=processed_dir / "structures",
+        msa_dir=processed_dir / "msa",
+        constraints_dir=(
+            (processed_dir / "constraints")
+            if (processed_dir / "constraints").exists()
+            else None
+        ),
+    )
+
+    data_module = BoltzInferenceDataModule(
+        manifest=processed.manifest,
+        target_dir=processed.targets_dir,
+        msa_dir=processed.msa_dir,
+        num_workers=num_workers,
+        constraints_dir=processed.constraints_dir,
+    )
+
+    if checkpoint is None:
+        checkpoint = cache / "boltz1_conf.ckpt"
+
+    predict_args = {
+        "recycling_steps": recycling_steps,
+        "sampling_steps": sampling_steps,
+        "diffusion_samples": diffusion_samples,
+        "write_confidence_summary": True,
+    }
+
+    diffusion_params = BoltzDiffusionParams(step_scale=step_scale)
+
+    steering_args = BoltzSteeringParams()
+    if no_potentials:
+        steering_args.fk_steering = False
+        steering_args.guidance_update = False
+
+    model_module: Boltz1 = Boltz1.load_from_checkpoint(
+        checkpoint,
+        strict=True,
+        predict_args=predict_args,
+        map_location=device,
+        diffusion_process_args=asdict(diffusion_params),
+        ema=False,
+        pairformer_args=asdict(PairformerArgs()),
+        msa_module_args=asdict(MSAModuleArgs()),
+        steering_args=asdict(steering_args),
+    )
+    model_module.eval()
+
+    batch = next(iter(data_module.predict_dataloader()))
+    batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()}
+
+    atom_mask = batch["atom_pad_mask"]
+    noise_shape = (*atom_mask.shape, 3)
+
+    # Initialize N starting paths
+    current_noises = torch.randn((num_initial_paths,) + noise_shape, device=device)
+    sigmas = model_module.structure_module.sample_schedule(diffusion_solver_steps)
+    sigma_start = sigmas[0].detach().cpu().item()
+
+
+    for idx in range(num_initial_paths):
+        noise = current_noises[idx]
+        for sigma in np.linspace(sigma_start.cpu().item(), search_start_sigma, diffusion_solver_steps):
+            denoised_coords, _ = model_module.structure_module.preconditioned_network_forward(
+                noised_atom_coords=noise,
+                sigma=sigma,
+                network_condition_kwargs=dict(feats=batch, multiplicity=1),
+                training=False
+            )
+            noise = denoised_coords
+        current_noises[idx] = noise
+
+    sigma = search_start_sigma
+
+    # Iterative forward-noise and backward-denoise search
+    while sigma > 0:
+        candidate_noises, candidate_scores = [], []
+
+        for candidate in current_noises:
+            forward_noises = [
+                candidate + torch.randn_like(candidate) * forward_stepsize
+                for _ in range(path_width)
+            ]
+
+            backward_noises = []
+            sigma_backward_end = max(sigma + forward_stepsize - backward_stepsize, 0)
+
+            for noise_fwd in forward_noises:
+                noise_bwd = noise_fwd
+                for sigma_bwd in np.linspace(sigma + forward_stepsize, sigma_backward_end, diffusion_solver_steps):
+                    denoised_coords, _ = model_module.structure_module.preconditioned_network_forward(
+                        noise_bwd, sigma_bwd, dict(feats=batch, multiplicity=1), training=False
+                    )
+                    noise_bwd = denoised_coords
+                backward_noises.append(noise_bwd)
+
+            for noise_bwd in backward_noises:
+                model_module.custom_noise = noise_bwd
+                pred_out = model_module.predict_step(batch, batch_idx=0)
+                score = pred_out["plddt"].mean().item()
+                candidate_noises.append(noise_bwd)
+                candidate_scores.append(score)
+
+        top_indices = np.argsort(candidate_scores)[-num_initial_paths:]
+        current_noises = torch.stack([candidate_noises[i] for i in top_indices])
+        sigma = max(sigma - backward_stepsize, 0)
+
+    best_idx = np.argmax(candidate_scores)
+    best_noise = candidate_noises[best_idx]
+    model_module.custom_noise = best_noise
+    best_out = model_module.predict_step(batch, batch_idx=0)
+    best_score = candidate_scores[best_idx]
+
+    print("Final best PLDDT:", best_score)
+
+    return best_out, best_score
+
+
 
 def random_sampling(
     data: str,
@@ -619,7 +797,7 @@ def monomers_predict(
                 fasta_files_unprocessed.append(fasta)
         else:
             fasta_files_unprocessed.append(fasta)
-    
+
     print(f"Unprocessed FASTA files: {len(fasta_files_unprocessed)}")
 
     for fasta in tqdm(fasta_files_unprocessed, desc="Processing monomers"):
@@ -631,45 +809,69 @@ def monomers_predict(
             shutil.rmtree(sub_dir)
         sub_dir.mkdir(parents=True, exist_ok=True)
 
-        random_sampling(
-            data=str(fasta),
-            out_dir=str(sub_dir),
-            devices=1,
-            accelerator="gpu",
-            sampling_steps=sampling_steps,
-            step_scale=1.638,
-            write_full_pae=True,
-            write_full_pde=False,
-            output_format="mmcif",
-            num_workers=2,
-            override=False,
-            seed=None,
-            use_msa_server=False,
-            no_potentials=True,
-            recycling_steps=recycling_steps,
-            num_random_samples=num_random_samples,
-            score_fn=plddt_score,
-        )
+        # random_sampling(
+        #     data=str(fasta),
+        #     out_dir=str(sub_dir),
+        #     devices=1,
+        #     accelerator="gpu",
+        #     sampling_steps=sampling_steps,
+        #     step_scale=1.638,
+        #     write_full_pae=True,
+        #     write_full_pde=False,
+        #     output_format="mmcif",
+        #     num_workers=2,
+        #     override=False,
+        #     seed=None,
+        #     use_msa_server=False,
+        #     no_potentials=True,
+        #     recycling_steps=recycling_steps,
+        #     num_random_samples=num_random_samples,
+        #     score_fn=plddt_score,
+        # )
 
-        zero_order_sampling(
+        # zero_order_sampling(
+        #     data=str(fasta),
+        #     out_dir=str(sub_dir),
+        #     devices=1,
+        #     accelerator="gpu",
+        #     sampling_steps=sampling_steps,
+        #     step_scale=1.638,
+        #     write_full_pae=True,
+        #     write_full_pde=False,
+        #     output_format="mmcif",
+        #     num_workers=2,
+        #     override=False,
+        #     seed=None,
+        #     use_msa_server=False,
+        #     no_potentials=True,
+        #     recycling_steps=recycling_steps,
+        #     num_candidates=num_neighbors,
+        #     num_iterations=num_iterations,
+        #     score_fn=plddt_score,
+        # )
+
+        search_over_paths(
             data=str(fasta),
             out_dir=str(sub_dir),
             devices=1,
             accelerator="gpu",
             sampling_steps=sampling_steps,
             step_scale=1.638,
-            write_full_pae=True,
-            write_full_pde=False,
             output_format="mmcif",
             num_workers=2,
-            override=False,
             seed=None,
             use_msa_server=False,
             no_potentials=True,
             recycling_steps=recycling_steps,
-            num_candidates=num_neighbors,
-            num_iterations=num_iterations,
-            score_fn=plddt_score,
+            diffusion_samples=1,
+            num_initial_paths=4,
+            path_width=5,
+            search_start_sigma=10.0,
+            backward_stepsize=0.5,
+            forward_stepsize=0.5,
+            diffusion_solver_steps=50,
+            confidence_fk=False,
+            device="cuda"
         )
 
         # Free memory after each FASTA file
@@ -712,10 +914,12 @@ def monomers_single_sample(
     else:
         fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
 
+    # sort in alphabetical order and select first 10 files
     fasta_files = sorted(fasta_files)[:10]
-    all_sampling_steps = [200, 600, 1000, 1400, 1800, 5000]
+    sampling_steps = [200, 600, 1000, 1400, 1800, 5000]
 
-    for steps in tqdm(all_sampling_steps, desc="Sampling step sets"):
+    for steps in sampling_steps:
+
         out_dir = (
             results_dir
             / f"boltz_monomers_msa_{use_msa}_sampling_{steps}_recycling_{recycling_steps}"
