@@ -690,12 +690,6 @@ def monomers_predict(
     default=False,
 )
 @click.option(
-    "--sampling_steps",
-    type=int,
-    help="The number of sampling steps to use for prediction.",
-    default=1600,
-)
-@click.option(
     "--recycling_steps",
     type=int,
     help="The number of recycling steps to use for prediction.",
@@ -704,7 +698,6 @@ def monomers_predict(
 def monomers_single_sample(
     data_dir: str,
     use_msa: bool,
-    sampling_steps: int,
     recycling_steps: int,
 ) -> None:
     """Make sure to run this command inside the data directory."""
