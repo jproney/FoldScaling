@@ -12,7 +12,7 @@ cd /path/to/FoldScaling
 cd data/boltz_monomers
 ```
 
-Next, run this script:
+To run the **zero order sampling vs random sampling experiment** for all monomers, run:
 ```bash
 boltz-exp monomers-predict --data_dir . --use_msa --sampling steps 100 --recycling_steps 3 --num_random_samples 64 --num_neighbors 8 --num_iterations 8
 ```
@@ -27,7 +27,13 @@ boltz-exp plot-results <path/to/boltz_results>
 ```
 Where the path is the path to the results you generated in the previous command.
 
-To run the single sample experiment, run:
+To generate a table of the results from the above experiment, run (as an example):
+```bash
+boltz-exp table-monomers-predict ../../results/boltz_monomers_msa_False_sampling_100_recycling_0_random_samples_64_neighbors_4_iterations_16/
+```
+This will print a table of the average pLDDT, average pTM, and average confidence scores across all monomers (or the first ten) for random sampling and zero order sampling, respectively.
+
+To run the **single sample experiment**, run:
 ```bash
 cd data/boltz_monomers
 ```
