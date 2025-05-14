@@ -20,6 +20,7 @@ from boltz.data.module.inference import BoltzInferenceDataModule
 from boltz.data.types import Manifest
 from boltz.data.write.writer import BoltzWriter
 from boltz.model.model import Boltz1
+import shutil
 
 from boltz.main import (
     BoltzConfidencePotential,
@@ -591,11 +592,43 @@ def monomers_predict(
     else:
         fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
 
-    for fasta in tqdm(fasta_files, desc="Processing monomers"):
+    fasta_files_unprocessed = []
+
+    for fasta in fasta_files:
+        fasta_name = fasta.stem
+        sub_dir = out_dir / fasta_name
+
+        if sub_dir.exists():
+            random_dir = sub_dir / f"random_{fasta_name}"
+            zero_order_dir = sub_dir / f"zero_order_{fasta_name}"
+
+            random_exists = False
+            if random_dir.exists():
+                pred_dir = random_dir / "predictions" / fasta_name
+                print(pred_dir)
+                if pred_dir.exists():
+                    random_exists = True
+
+            zero_order_exists = False
+            if zero_order_dir.exists():
+                pred_dir = zero_order_dir / "predictions" / fasta_name
+                if pred_dir.exists():
+                    zero_order_exists = True
+
+            if not random_exists or not zero_order_exists:
+                fasta_files_unprocessed.append(fasta)
+        else:
+            fasta_files_unprocessed.append(fasta)
+    
+    print(f"Unprocessed FASTA files: {len(fasta_files_unprocessed)}")
+
+    for fasta in tqdm(fasta_files_unprocessed, desc="Processing monomers"):
         print(f"\n------\nProcessing {fasta.name}")
 
         fasta_name = fasta.stem
         sub_dir = out_dir / fasta_name
+        if sub_dir.exists():
+            shutil.rmtree(sub_dir)
         sub_dir.mkdir(parents=True, exist_ok=True)
 
         random_sampling(
