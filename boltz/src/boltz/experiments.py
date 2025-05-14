@@ -714,9 +714,9 @@ def cli() -> None:
     default=False,
 )
 @click.option(
-    "--sampling_steps",
+    "--denoising_steps",
     type=int,
-    help="The number of sampling steps to use for prediction.",
+    help="The number of denoising steps to use for prediction.",
     default=100,
 )
 @click.option(
@@ -746,21 +746,20 @@ def cli() -> None:
 def monomers_predict(
     data_dir: str,
     use_msa: bool,
-    sampling_steps: int,
+    denoising_steps: int,
     recycling_steps: int,
     num_random_samples: int,
     num_neighbors: int,
     num_iterations: int,
 ) -> None:
     """Make sure to run this command inside the data directory."""
-
     parent_dir = pathlib.Path(data_dir).absolute().parent.parent
     results_dir = parent_dir / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
 
     out_dir = (
         results_dir
-        / f"boltz_monomers_msa_{use_msa}_sampling_{sampling_steps}_recycling_{recycling_steps}_random_samples_{num_random_samples}_neighbors_{num_neighbors}_iterations_{num_iterations}"
+        / f"boltz_monomers_msa_{use_msa}_denoising_{denoising_steps}_recycling_{recycling_steps}_random_samples_{num_random_samples}_neighbors_{num_neighbors}_iterations_{num_iterations}"
     )
     out_dir = pathlib.Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -811,70 +810,70 @@ def monomers_predict(
             shutil.rmtree(sub_dir)
         sub_dir.mkdir(parents=True, exist_ok=True)
 
-        # random_sampling(
-        #     data=str(fasta),
-        #     out_dir=str(sub_dir),
-        #     devices=1,
-        #     accelerator="gpu",
-        #     sampling_steps=sampling_steps,
-        #     step_scale=1.638,
-        #     write_full_pae=True,
-        #     write_full_pde=False,
-        #     output_format="mmcif",
-        #     num_workers=2,
-        #     override=False,
-        #     seed=None,
-        #     use_msa_server=False,
-        #     no_potentials=True,
-        #     recycling_steps=recycling_steps,
-        #     num_random_samples=num_random_samples,
-        #     score_fn=plddt_score,
-        # )
-
-        # zero_order_sampling(
-        #     data=str(fasta),
-        #     out_dir=str(sub_dir),
-        #     devices=1,
-        #     accelerator="gpu",
-        #     sampling_steps=sampling_steps,
-        #     step_scale=1.638,
-        #     write_full_pae=True,
-        #     write_full_pde=False,
-        #     output_format="mmcif",
-        #     num_workers=2,
-        #     override=False,
-        #     seed=None,
-        #     use_msa_server=False,
-        #     no_potentials=True,
-        #     recycling_steps=recycling_steps,
-        #     num_candidates=num_neighbors,
-        #     num_iterations=num_iterations,
-        #     score_fn=plddt_score,
-        # )
-
-        search_over_paths(
+        random_sampling(
             data=str(fasta),
             out_dir=str(sub_dir),
             devices=1,
             accelerator="gpu",
-            sampling_steps=sampling_steps,
+            sampling_steps=denoising_steps,
             step_scale=1.638,
+            write_full_pae=True,
+            write_full_pde=False,
             output_format="mmcif",
             num_workers=2,
+            override=False,
             seed=None,
             use_msa_server=False,
             no_potentials=True,
             recycling_steps=recycling_steps,
-            diffusion_samples=1,
-            num_initial_paths=4,
-            path_width=5,
-            search_start_sigma=10.0,
-            backward_stepsize=0.5,
-            forward_stepsize=0.5,
-            diffusion_solver_steps=50,
-            confidence_fk=False,
-            device="cuda"
+            num_random_samples=num_random_samples,
+            score_fn=plddt_score,
         )
+
+        zero_order_sampling(
+            data=str(fasta),
+            out_dir=str(sub_dir),
+            devices=1,
+            accelerator="gpu",
+            sampling_steps=denoising_steps,
+            step_scale=1.638,
+            write_full_pae=True,
+            write_full_pde=False,
+            output_format="mmcif",
+            num_workers=2,
+            override=False,
+            seed=None,
+            use_msa_server=False,
+            no_potentials=True,
+            recycling_steps=recycling_steps,
+            num_candidates=num_neighbors,
+            num_iterations=num_iterations,
+            score_fn=plddt_score,
+        )
+
+        # search_over_paths(
+        #     data=str(fasta),
+        #     out_dir=str(sub_dir),
+        #     devices=1,
+        #     accelerator="gpu",
+        #     sampling_steps=denoising_steps,
+        #     step_scale=1.638,
+        #     output_format="mmcif",
+        #     num_workers=2,
+        #     seed=None,
+        #     use_msa_server=False,
+        #     no_potentials=True,
+        #     recycling_steps=recycling_steps,
+        #     diffusion_samples=1,
+        #     num_initial_paths=4,
+        #     path_width=5,
+        #     search_start_sigma=10.0,
+        #     backward_stepsize=0.5,
+        #     forward_stepsize=0.5,
+        #     diffusion_solver_steps=50,
+        #     confidence_fk=False,
+        #     device="cuda"
+        # )
 
         # Free memory after each FASTA file
         torch.cuda.empty_cache()
@@ -930,7 +929,6 @@ def monomers_single_sample(
     else:
         fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
 
-    # sort in alphabetical order and select first 10 files
     fasta_files = sorted(fasta_files)[:num_monomers]
 
     out_dir = (
