@@ -941,16 +941,86 @@ def table_single_sample(results_root: str):
             all_conf.append(float(data["confidence_score"]))
 
         if all_plddt:
-            avg_plddt = sum(all_plddt) / len(all_plddt)
-            avg_ptm = sum(all_ptm) / len(all_ptm)
-            avg_conf = sum(all_conf) / len(all_conf)
+            avg_plddt = np.mean(all_plddt)
+            avg_ptm = np.mean(all_ptm)
+            avg_conf = np.mean(all_conf)
             summary[sampling_step] = (avg_plddt, avg_ptm, avg_conf)
 
     print("\nSampling Steps | Avg pLDDT | Avg pTM | Avg Confidence")
     print("-" * 55)
     for step in sorted(summary.keys()):
+        if not summary[step]:
+            continue
         plddt, ptm, conf = summary[step]
         print(f"{step:<14}   {plddt:.4f}     {ptm:.4f}    {conf:.4f}")
+
+
+@cli.command()
+@click.argument("results_root", type=click.Path(exists=True))
+def plot_single_sample_dist(results_root: str):
+    """
+    Plot pLDDT distributions for each sampling step experiment.
+    """
+    root = pathlib.Path(results_root)
+    experiment_dirs = [
+        d for d in root.iterdir() if d.is_dir() and d.name.startswith("boltz_monomers")
+    ]
+
+    step_to_scores = {}
+
+    for exp_dir in experiment_dirs:
+        if exp_dir.name == "plots":
+            continue
+        try:
+            name_parts = exp_dir.name.split("_")
+            sampling_idx = name_parts.index("sampling")
+            sampling_step = int(name_parts[sampling_idx + 1])
+        except Exception:
+            continue
+
+        all_plddt = []
+
+        for subdir in exp_dir.iterdir():
+            pred_dir = subdir / "predictions"
+            inner_dirs = [p for p in pred_dir.iterdir() if p.is_dir()]
+            if not inner_dirs:
+                continue
+            pred_dir = inner_dirs[0]
+            json_files = list(pred_dir.glob("*.json"))
+            if not json_files:
+                continue
+
+            with open(json_files[0], "r") as f:
+                data = json.load(f)
+            all_plddt.append(float(data["complex_plddt"]))
+
+        if all_plddt:
+            step_to_scores[sampling_step] = all_plddt
+
+    if not step_to_scores:
+        print("No valid data found.")
+        return
+
+    # Plot
+    plt.figure(figsize=(10, 6))
+    for step, scores in sorted(step_to_scores.items()):
+        kde = gaussian_kde(scores)
+        x_range = np.linspace(min(scores), max(scores), 1000)
+        plt.plot(x_range, kde(x_range), label=f"{step} steps")
+
+    plt.xlabel("pLDDT")
+    plt.ylabel("Density")
+    plt.title("pLDDT Distributions by Sampling Steps")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+
+    plots_dir = root / "plots"
+    plots_dir.mkdir(exist_ok=True)
+    out_path = plots_dir / "plddt_distributions_by_sampling_step.png"
+    plt.savefig(out_path)
+    plt.close()
+    print(f"Saved plot to {out_path}")
 
 
 if __name__ == "__main__":
