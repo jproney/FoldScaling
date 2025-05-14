@@ -14,12 +14,12 @@ cd data/boltz_monomers
 
 To run the **zero order sampling vs random sampling experiment** for all monomers, run:
 ```bash
-boltz-exp monomers-predict --data_dir . --use_msa --sampling steps 100 --recycling_steps 3 --num_random_samples 64 --num_neighbors 8 --num_iterations 8
+boltz-exp monomers-predict --data_dir . --use_msa --denoising_steps 100 --recycling_steps 3 --num_random_samples 64 --num_neighbors 8 --num_iterations 8
 ```
 
 This is an example of an experiment. Providing data directory is required, and in this case it is just the current working directory, `.`. In this experiment, we will use msa, run 100 denoising steps, 3 recycling steps, 64 random samples for random sampling, use 8 neighbors and 8 iterations for zero order search.
 
-The results will be saved inside `FoldScaling/results/boltz_monomers_msa_False_sampling_100_recycling_3_random_samples_64_neighbors_8_iterations_8`.
+The results will be saved inside `FoldScaling/results/boltz_monomers_msa_True_denoising_100_recycling_3_random_samples_64_neighbors_8_iterations_8`.
 
 To generate a plot of the results, run:
 ```bash
@@ -29,7 +29,7 @@ Where the path is the path to the results you generated in the previous command.
 
 To generate a table of the results from the above experiment, run (as an example):
 ```bash
-boltz-exp table-monomers-predict ../../results/boltz_monomers_msa_False_sampling_100_recycling_0_random_samples_64_neighbors_4_iterations_16/
+boltz-exp table-monomers-predict ../../results/boltz_monomers_msa_False_denoising_100_recycling_0_random_samples_64_neighbors_4_iterations_16/
 ```
 This will print a table of the average pLDDT, average pTM, and average confidence scores across all monomers (or the first ten) for random sampling and zero order sampling, respectively.
 
@@ -40,9 +40,9 @@ cd data/boltz_monomers
 
 And then (as an example):
 ```bash
-boltz-exp monomers-single-sample --data_dir . --use_msa --sampling steps 1600 --recycling_steps 3
+boltz-exp monomers-single-sample --data_dir . --use_msa --denoising_steps 1600 --recycling_steps 3
 ```
-The results will be saved inside `FoldScaling/results/boltz_monomers_msa_False_sampling_1600_recycling_3`.
+The results will be saved inside `FoldScaling/results/boltz_monomers_msa_True_denoising_1600_recycling_3`.
 
 To generate a table of the results from the above experiment, run:
 ```bash
