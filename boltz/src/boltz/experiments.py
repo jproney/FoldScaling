@@ -743,6 +743,12 @@ def cli() -> None:
     help="The number of iterations to use for zero-order search.",
     default=8,
 )
+@click.option(
+    "--num_monomers",
+    type=int,
+    help="The number of monomers to use for prediction.",
+    default=50,
+)
 def monomers_predict(
     data_dir: str,
     use_msa: bool,
@@ -751,6 +757,7 @@ def monomers_predict(
     num_random_samples: int,
     num_neighbors: int,
     num_iterations: int,
+    num_monomers: int,
 ) -> None:
     """Make sure to run this command inside the data directory."""
     parent_dir = pathlib.Path(data_dir).absolute().parent.parent
@@ -765,6 +772,7 @@ def monomers_predict(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     all_fasta_files = list(pathlib.Path(data_dir).glob("*.fasta"))
+    all_fasta_files = sorted(all_fasta_files)[:num_monomers]
 
     if use_msa:
         fasta_files = [f for f in all_fasta_files if "_no_msa" not in f.name]
