@@ -27,11 +27,17 @@ boltz-exp plot-results <path/to/boltz_results>
 ```
 Where the path is the path to the results you generated in the previous command.
 
+To download the cif files for all the monomers, run:
+```bash
+boltz-utils dld-cif path/to/data/monomers.txt path/to/data/ground_truth_cif/
+```
+Where the first argument is a txt file with all the PDB IDs, and the second argument is the desired output directory to download all the cif files.
+
 To generate a table of the results from the above experiment, run (as an example):
 ```bash
-boltz-exp table-monomers-predict ../../results/boltz_monomers_msa_False_denoising_100_recycling_0_random_samples_64_neighbors_4_iterations_16/
+boltz-exp avg-monomers-search path/to/results path/to/data/ground_truth_cif
 ```
-This will print a table of the average pLDDT, average pTM, and average confidence scores across all monomers (or the first ten) for random sampling and zero order sampling, respectively.
+This will print a table of the average pLDDT, average pTM, average confidence, and average LDDT scores across the desired monomers for random sampling and zero order sampling, respectively.
 
 To run the **single sample experiment**, run:
 ```bash
@@ -46,6 +52,6 @@ The results will be saved inside `FoldScaling/results/boltz_monomers_msa_True_de
 
 To generate a table of the results from the above experiment, run:
 ```bash
-boltz-exp table-single-sample results/
+boltz-exp avg-monomers-single path/to/results path/to/data/ground_truth_cif
 ```
 Assuming the path given only contains the results from varying the number of denoising steps.
