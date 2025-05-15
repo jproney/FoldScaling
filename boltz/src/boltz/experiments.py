@@ -11,6 +11,8 @@ from tqdm import tqdm
 
 import shutil
 from Bio.PDB.MMCIFParser import MMCIFParser
+import warnings
+from Bio.PDB.PDBExceptions import PDBConstructionWarning
 
 from boltz.search_algorithms import (
     random_sampling,
@@ -22,6 +24,8 @@ from boltz.search_algorithms import (
 from boltz.utils import (
     compute_lddt
 )
+
+warnings.simplefilter('ignore', PDBConstructionWarning)
 
 @click.group()
 def cli() -> None:
@@ -622,11 +626,11 @@ def avg_monomers_search(results: str, gt: str):
         )
 
     root = pathlib.Path(results)
-    sub_dirs = [
+    sub_dirs = sorted([
         d
         for d in root.iterdir()
         if d.is_dir() and d.name != "plots" and d.name != ".DS_Store"
-    ]
+    ])
     gt_files = sorted(
         [
             d
