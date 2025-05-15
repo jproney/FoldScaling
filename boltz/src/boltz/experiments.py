@@ -540,7 +540,7 @@ def avg_monomers_single(results: str, gt: str):
     gt_files = sorted(
         [
             d
-            for d in gt.iterdir()
+            for d in pathlib.Path(gt).iterdir()
             if not d.is_dir() and d.name != "plots" and d.name != ".DS_Store"
         ],
         key=lambda x: x.name,
@@ -630,19 +630,24 @@ def avg_monomers_search(results: str, gt: str):
     gt_files = sorted(
         [
             d
-            for d in gt.iterdir()
+            for d in pathlib.Path(gt).iterdir()
             if not d.is_dir() and d.name != "plots" and d.name != ".DS_Store"
         ],
         key=lambda x: x.name,
     )
-    gt_files = gt_files[:len(sub_dirs)]
+
+    first_monomer_dirs = sorted(
+        [d for d in sub_dirs[0].iterdir() if d.is_dir() and d.name != "plots"],
+        key=lambda x: x.name,
+    )
+    gt_files = gt_files[:len(first_monomer_dirs)]
 
     for sub_dir in tqdm(sub_dirs, desc="Processing experiments"):
         random_plddt, random_ptm, random_conf, random_lddt = [], [], [], []
         zos_plddt, zos_ptm, zos_conf, zos_lddt = [], [], [], []
 
         monomer_dirs = sorted(
-            [d for d in root.iterdir() if d.is_dir() and d.name != "plots"],
+            [d for d in sub_dir.iterdir() if d.is_dir() and d.name != "plots"],
             key=lambda x: x.name,
         )
 
@@ -650,7 +655,7 @@ def avg_monomers_search(results: str, gt: str):
             zip(monomer_dirs, gt_files), desc="Processing monomers"
         ):
             assert (
-                monomer_dir.name == gt_cif.stem
+                monomer_dir.name.split("_")[0] == gt_cif.stem
             ), f"Mismatch: {monomer_dir.name} vs {gt_cif.stem}"
             plddt, ptm, conf, random_cif = get_monomer_result(monomer_dir, "random")
             random_plddt.append(plddt)
@@ -672,7 +677,7 @@ def avg_monomers_search(results: str, gt: str):
             print(f"Avg pLDDT: {np.mean(plddt_list):.4f} ± {np.std(plddt_list):.4f}")
             print(f"Avg pTM: {np.mean(ptm_list):.4f} ± {np.std(ptm_list):.4f}")
             print(f"Avg Confidence: {np.mean(conf_list):.4f} ± {np.std(conf_list):.4f}")
-            print(f"Avg lDDT: {np.mean(lddt_list):.4f} ± {np.std(lddt_list):.4f}")
+            print(f"Avg LDDT: {np.mean(lddt_list):.4f} ± {np.std(lddt_list):.4f}")
 
         print("\n" + "=" * 50)
         print("Experiment: " + sub_dir.name)
