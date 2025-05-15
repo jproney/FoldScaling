@@ -238,26 +238,12 @@ def monomers_predict(
     help="The number of denoising steps to use for prediction.",
     default=200,
 )
-@click.option(
-    "--verifier",
-    type=str,
-    help="The score function to use for prediction.",
-    default="plddt",
-)
-@click.option(
-    "--gt_cifs",
-    type=str,
-    help="The path to the directory containing the ground truth cif files.",
-    default=None,
-)
 def monomers_single_sample(
     data_dir: str,
     use_msa: bool,
     recycling_steps: int,
     num_monomers: int,
     denoising_steps: int,
-    verifier: str,
-    gt_cifs: str,
 ) -> None:
     """Make sure to run this command inside the data directory."""
 
@@ -299,8 +285,7 @@ def monomers_single_sample(
             no_potentials=True,
             recycling_steps=recycling_steps,
             num_random_samples=1,
-            verifier=verifier,
-            gt_cifs=gt_cifs,
+            verifier='pddlt',
         )
 
         torch.cuda.empty_cache()
