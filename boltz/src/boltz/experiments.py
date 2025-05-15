@@ -532,7 +532,7 @@ def avg_monomers_single(results: str, gt: str):
         print(f"Avg pLDDT: {avg_plddt:.4f} ± {std_plddt:.4f}")
         print(f"Avg pTM: {avg_ptm:.4f} ± {std_ptm:.4f}")
         print(f"Avg Confidence: {avg_conf:.4f} ± {std_conf:.4f}")
-        print(f"Avg lDDT: {avg_lddt:.4f} ± {std_lddt:.4f}")
+        print(f"Avg LDDT: {avg_lddt:.4f} ± {std_lddt:.4f}")
 
     root = pathlib.Path(results)
     sub_dirs = [
@@ -665,7 +665,7 @@ def avg_monomers_search(results: str, gt: str):
             random_plddt.append(plddt)
             random_ptm.append(ptm)
             random_conf.append(conf)
-            random_lddt.append(compute_lddt(random_cif, gt_cif))
+            random_lddt.append(compute_lddt(random_cif, gt_cif)[0])
 
             plddt, ptm, conf, zero_order_cif = get_monomer_result(
                 monomer_dir, "zero_order"
@@ -673,7 +673,7 @@ def avg_monomers_search(results: str, gt: str):
             zos_plddt.append(plddt)
             zos_ptm.append(ptm)
             zos_conf.append(conf)
-            zos_lddt.append(compute_lddt(zero_order_cif, gt_cif))
+            zos_lddt.append(compute_lddt(zero_order_cif, gt_cif)[0])
 
         def summarize(search_method, plddt_list, ptm_list, conf_list, lddt_list):
             print(f"\n{search_method} Sampling")
