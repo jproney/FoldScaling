@@ -108,13 +108,13 @@ systemd-inhibit bash -c "
 set -e
 
 systemd-inhibit bash -c '
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 200 --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 800 --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 1600 --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 3200 --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 6400 --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 12800 --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 25600 --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 51200 --num_monomers 25 --gt_cifs ../ground_truth_cif/
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 200 --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 800 --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 1600 --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 3200 --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 6400 --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 12800 --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 25600 --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 51200 --num_monomers 25
 '
 ```

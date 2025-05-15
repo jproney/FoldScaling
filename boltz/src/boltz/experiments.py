@@ -285,7 +285,7 @@ def monomers_single_sample(
             no_potentials=True,
             recycling_steps=recycling_steps,
             num_random_samples=1,
-            verifier='pldtt',
+            verifier='plddt',
         )
 
         torch.cuda.empty_cache()
