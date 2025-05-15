@@ -8,6 +8,7 @@ from scipy.stats import gaussian_kde
 import torch
 import numpy as np
 from tqdm import tqdm
+import re
 
 import shutil
 from Bio.PDB.MMCIFParser import MMCIFParser
@@ -104,13 +105,13 @@ def monomers_predict(
     out_dir.mkdir(parents=True, exist_ok=True)
 
     all_fasta_files = list(pathlib.Path(data_dir).glob("*.fasta"))
-    all_fasta_files = sorted(all_fasta_files)[:num_monomers]
 
     if use_msa:
         fasta_files = [f for f in all_fasta_files if "_no_msa" not in f.name]
     else:
         fasta_files = [f for f in all_fasta_files if "_no_msa" in f.name]
 
+    fasta_files = sorted(fasta_files)[:num_monomers]
     fasta_files_unprocessed = []
 
     for fasta in fasta_files:
@@ -687,6 +688,108 @@ def avg_monomers_search(results: str, gt: str):
         print("Experiment: " + sub_dir.name)
         summarize("Random", random_plddt, random_ptm, random_conf, random_lddt)
         summarize("Zero-Order", zos_plddt, zos_ptm, zos_conf, zos_lddt)
+
+
+@cli.command()
+@click.option(
+    "--results",
+    type=click.Path(exists=True),
+    required=True,
+    help="The path to the directory containing all experiment results.",
+)
+def plot_plddt_vs_nfe(results):
+    """
+    Generate line plots of average pLDDT vs. NFE for both random sampling
+    and zero-order search across all experiments in the results directory.
+    """
+    def extract_config_from_name(name):
+        match = re.search(
+            r'denoising_(\d+)_recycling_\d+_random_samples_(\d+)_neighbors_(\d+)_iterations_(\d+)', name
+        )
+        if not match:
+            raise ValueError(f"Could not parse experiment name: {name}")
+        denoising = int(match.group(1))
+        samples = int(match.group(2))
+        neighbors = int(match.group(3))
+        iterations = int(match.group(4))
+        return denoising, samples, neighbors, iterations
+
+    def gather_plddt_scores(results_root):
+        results_root = pathlib.Path(results_root)
+        exp_dirs = sorted([
+            d for d in results_root.iterdir()
+            if d.is_dir() and d.name.startswith("boltz_monomers")
+        ])
+        
+        random_data = []
+        zos_data = []
+
+        for exp in exp_dirs:
+            try:
+                denoising, samples, neighbors, iterations = extract_config_from_name(exp.name)
+            except ValueError:
+                continue  # Skip unrecognized folder
+
+            nfe_random = denoising * samples
+            nfe_zos = denoising * neighbors * iterations
+
+            monomer_dirs = sorted([
+                d for d in exp.iterdir() if d.is_dir() and d.name != "plots"
+            ])
+            if not monomer_dirs:
+                continue
+
+            plddts_random = []
+            plddts_zos = []
+
+            for monomer_dir in monomer_dirs:
+                for method in ["random", "zero_order"]:
+                    pred_dir = (
+                        monomer_dir
+                        / f"{method}_{monomer_dir.name}"
+                        / "predictions"
+                        / monomer_dir.name
+                    )
+                    try:
+                        json_file = next(pred_dir.glob("*.json"))
+                        with open(json_file, "r") as f:
+                            data = json.load(f)
+                        if method == "random":
+                            plddts_random.append(float(data["complex_plddt"]))
+                        else:
+                            plddts_zos.append(float(data["complex_plddt"]))
+                    except Exception:
+                        continue  # Skip missing/incomplete predictions
+
+            if plddts_random:
+                avg_random = sum(plddts_random) / len(plddts_random)
+                random_data.append((nfe_random, avg_random))
+            if plddts_zos:
+                avg_zos = sum(plddts_zos) / len(plddts_zos)
+                zos_data.append((nfe_zos, avg_zos))
+
+        return random_data, zos_data
+
+    random_data, zos_data = gather_plddt_scores(results)
+
+    random_data.sort()
+    zos_data.sort()
+
+    plt.figure()
+    if random_data:
+        x_r, y_r = zip(*random_data)
+        plt.plot(x_r, y_r, marker="o", label="Random Sampling")
+    if zos_data:
+        x_z, y_z = zip(*zos_data)
+        plt.plot(x_z, y_z, marker="o", label="Zero-Order Search")
+
+    plt.xlabel("Number of Function Evaluations (NFE)")
+    plt.ylabel("Average pLDDT")
+    plt.title("pLDDT vs NFE")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 
 @cli.command()
