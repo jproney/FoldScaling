@@ -719,9 +719,9 @@ def random_sampling(
             batch_idx=0,
             dataloader_idx=0,
         )
-        pred_dir = out_dir / "predictions" / out_dir.parent.stem
+        pred_dir = out_dir / "predictions" / "_".join(out_dir.stem.split("_")[1:])
         cif_pred = next(pred_dir.glob("*.cif"))
-        cif_true = out_dir.parent.parent.parent.parent / "data" / "ground_truth_cif" / (out_dir.parent.stem.split("_")[0] + ".cif")
+        cif_true = out_dir.parent.parent.parent / "data" / "ground_truth_cif" / (out_dir.stem.split("_")[1] + ".cif")
         score, total = compute_lddt(cif_pred, cif_true)
 
         # remove temp dir

@@ -101,16 +101,16 @@ systemd-inhibit bash -c "
 
 ```bash
 #!/bin/bash
-set -e  # Exit on any error
+set -e
 
-systemd-inhibit bash -c "
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 200 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 800 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 1600 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 3200 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 6400 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 12800 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 25600 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . -denoising_steps 51200 --verifier lddt --num_monomers 25 &&
-"
+systemd-inhibit bash -c '
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 200 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 800 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 1600 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 3200 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 6400 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 12800 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 25600 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 51200 --verifier lddt --num_monomers 25
+'
 ```
