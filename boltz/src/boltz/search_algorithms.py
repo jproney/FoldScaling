@@ -29,6 +29,8 @@ from boltz.main import (
     BoltzProcessedInput,
 )
 
+from boltz.utils import compute_lddt
+
 
 def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     B, M, C = base_noise.shape
@@ -65,11 +67,17 @@ def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     return torch.stack(neighbors)
 
 
-def plddt_score(out):
+def plddt_score(out, pdb_id):
     """Calculate the pLDDT score from the output."""
     plddt = out["plddt"].mean(dim=1)
     return plddt
 
+
+def lddt_score(out, data: str):
+    """Calculate the LDDT score from the output."""
+    compute_lddt(cif_pred, cif_true)
+    pdb_id = pathlib.Path(data).stem.split("_")[0]
+    return lddt
 
 def zero_order_sampling(
     data: str,
@@ -274,7 +282,7 @@ def zero_order_sampling(
             # Set custom noise
             model_module.custom_noise = candidate_noise
             out = model_module.predict_step(batch, batch_idx=0)
-            score = score_fn(out)
+            score = score_fn(out, data)
             score = score.item() if isinstance(score, torch.Tensor) else score
 
             inner_iter.set_postfix(**{score_fn.__name__: f"{score:.3f}"}, refresh=True)
