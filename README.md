@@ -55,3 +55,62 @@ To generate a table of the results from the above experiment, run:
 boltz-exp avg-monomers-single path/to/results path/to/data/ground_truth_cif
 ```
 Assuming the path given only contains the results from varying the number of denoising steps.
+
+
+## Experiments Ran
+
+You can copy these into multiple `.sh` files and put them inside `data/boltz_monomers/`:
+```bash
+#!/bin/bash
+set -e  # Exit on any error
+
+systemd-inhibit boltz-exp monomers-predict \
+  --data_dir . \
+  --num_random_samples 256 \
+  --num_neighbors 2 \
+  --num_iterations 128
+```
+
+```bash
+#!/bin/bash
+set -e  # Exit on any error
+
+systemd-inhibit bash -c "
+  boltz-exp monomers-predict --data_dir . --num_random_samples 2 --num_neighbors 2 --num_iterations 1 --verifier pddlt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 8 --num_neighbors 2 --num_iterations 4 --verifier pddlt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 16 --num_neighbors 2 --num_iterations 8 --verifier pddlt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 32 --num_neighbors 2 --num_iterations 16 --verifier pddlt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 64 --num_neighbors 2 --num_iterations 32 --verifier pddlt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 128 --num_neighbors 2 --num_iterations 64 --verifier pddlt --num_monomers 25
+"
+```
+
+```bash
+#!/bin/bash
+set -e  # Exit on any error
+
+systemd-inhibit bash -c "
+  boltz-exp monomers-predict --data_dir . --num_random_samples 2 --num_neighbors 2 --num_iterations 1 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 8 --num_neighbors 2 --num_iterations 4 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 16 --num_neighbors 2 --num_iterations 8 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 32 --num_neighbors 2 --num_iterations 16 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 64 --num_neighbors 2 --num_iterations 32 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 128 --num_neighbors 2 --num_iterations 64 --verifier lddt --num_monomers 25
+"
+```
+
+```bash
+#!/bin/bash
+set -e  # Exit on any error
+
+systemd-inhibit bash -c "
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 200 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 800 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 1600 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 3200 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 6400 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 12800 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 25600 --verifier lddt --num_monomers 25 &&
+  boltz-exp monomers-single-sample --data_dir . -denoising_steps 51200 --verifier lddt --num_monomers 25 &&
+"
+```

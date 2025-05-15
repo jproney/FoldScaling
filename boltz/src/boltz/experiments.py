@@ -245,13 +245,6 @@ def monomers_single_sample(
 ) -> None:
     """Make sure to run this command inside the data directory."""
 
-    if verifier == "plddt":
-        score_fn = plddt_score
-    elif verifier == "lddt":
-        score_fn = lddt_score
-    else:
-        raise ValueError(f"Unknown verifier: {verifier}")
-
     parent_dir = pathlib.Path(data_dir).absolute().parent.parent
     results_dir = parent_dir / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -290,7 +283,7 @@ def monomers_single_sample(
             no_potentials=True,
             recycling_steps=recycling_steps,
             num_random_samples=1,
-            score_fn=score_fn,
+            verifier=verifier,
         )
 
         torch.cuda.empty_cache()
