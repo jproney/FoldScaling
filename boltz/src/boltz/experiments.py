@@ -20,8 +20,7 @@ from boltz.search_algorithms import (
 )
 
 from boltz.utils import (
-    compute_lddt,
-    download_cif_files,
+    compute_lddt
 )
 
 @click.group()
