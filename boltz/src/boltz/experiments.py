@@ -82,6 +82,12 @@ def cli() -> None:
     help="The score function to use for prediction.",
     default="plddt",
 )
+@click.option(
+    "--gt_cifs",
+    type=str,
+    help="The path to the directory containing the ground truth cif files.",
+    default=None,
+)
 def monomers_predict(
     data_dir: str,
     use_msa: bool,
@@ -92,6 +98,7 @@ def monomers_predict(
     num_iterations: int,
     num_monomers: int,
     verifier: str,
+    gt_cifs: str,
 ) -> None:
     """Make sure to run this command inside the data directory."""
 
@@ -171,6 +178,7 @@ def monomers_predict(
             recycling_steps=recycling_steps,
             num_random_samples=num_random_samples,
             verifier=verifier,
+            gt_cifs=gt_cifs,
         )
 
         zero_order_sampling(
@@ -192,6 +200,7 @@ def monomers_predict(
             num_candidates=num_neighbors,
             num_iterations=num_iterations,
             verifier=verifier,
+            gt_cifs=gt_cifs,
         )
 
         # Free memory after each FASTA file
@@ -235,6 +244,12 @@ def monomers_predict(
     help="The score function to use for prediction.",
     default="plddt",
 )
+@click.option(
+    "--gt_cifs",
+    type=str,
+    help="The path to the directory containing the ground truth cif files.",
+    default=None,
+)
 def monomers_single_sample(
     data_dir: str,
     use_msa: bool,
@@ -242,6 +257,7 @@ def monomers_single_sample(
     num_monomers: int,
     denoising_steps: int,
     verifier: str,
+    gt_cifs: str,
 ) -> None:
     """Make sure to run this command inside the data directory."""
 
@@ -284,6 +300,7 @@ def monomers_single_sample(
             recycling_steps=recycling_steps,
             num_random_samples=1,
             verifier=verifier,
+            gt_cifs=gt_cifs,
         )
 
         torch.cuda.empty_cache()

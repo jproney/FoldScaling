@@ -68,7 +68,7 @@ def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     return torch.stack(neighbors)
 
 
-def plddt_score(out, data: str):
+def plddt_score(out, gt_cifs=None):
     """Calculate the pLDDT score from the output."""
     plddt = out["plddt"].mean(dim=1)
     return plddt.item()
@@ -99,6 +99,7 @@ def zero_order_sampling(
     confidence_fk: bool = False,
     diffusion_samples: int = 1,
     verifier: str = "plddt",
+    gt_cifs: str = None,
 ) -> None:
     """Run predictions with Boltz-1."""
     # If cpu, write a friendly warning
@@ -246,7 +247,7 @@ def zero_order_sampling(
     else:
         model_module.predict_args["confidence_potential"] = None
 
-    def lddt_score(out):
+    def lddt_score(out, gt_cifs=None):
         """Calculate the LDDT score from the output."""
         pred_writer = BoltzWriter(
             data_dir=processed.targets_dir,
@@ -269,9 +270,13 @@ def zero_order_sampling(
             batch_idx=0,
             dataloader_idx=0,
         )
-        pred_dir = out_dir / "predictions" / out_dir.parent.stem
+
+        pred_dir = out_dir / "predictions" / "_".join(out_dir.stem.split("_")[2:])
+        cif_true = pathlib.Path(gt_cifs) / (out_dir.stem.split("_")[2] + ".cif")
+
         cif_pred = next(pred_dir.glob("*.cif"))
-        cif_true = out_dir.parent.parent.parent.parent / "data" / "ground_truth_cif" / (out_dir.parent.stem.split("_")[0] + ".cif")
+        assert cif_pred.exists(), f"Predicted cif file not found in {cif_pred}"
+        assert cif_true.exists(), f"True cif file not found in {cif_true}"
         score, total = compute_lddt(cif_pred, cif_true)
 
         # remove temp dir
@@ -316,7 +321,7 @@ def zero_order_sampling(
             # Set custom noise
             model_module.custom_noise = candidate_noise
             out = model_module.predict_step(batch, batch_idx=0)
-            score = score_fn(out)
+            score = score_fn(out, gt_cifs=gt_cifs)
 
             inner_iter.set_postfix(**{verifier: f"{score:.3f}"}, refresh=True)
 
@@ -580,6 +585,7 @@ def random_sampling(
     confidence_fk: bool = False,
     diffusion_samples: int = 1,
     verifier: str = "plddt",
+    gt_cifs: str = None,
 ) -> None:
     """Run random sampling predictions with Boltz-1."""
     torch.set_grad_enabled(False)
@@ -696,7 +702,7 @@ def random_sampling(
     random_scores = []
     best_score, best_out = -float("inf"), None
 
-    def lddt_score(out):
+    def lddt_score(out, gt_cifs=None):
         """Calculate the LDDT score from the output."""
         pred_writer = BoltzWriter(
             data_dir=processed.targets_dir,
@@ -719,9 +725,14 @@ def random_sampling(
             batch_idx=0,
             dataloader_idx=0,
         )
+
         pred_dir = out_dir / "predictions" / "_".join(out_dir.stem.split("_")[1:])
+        cif_true = pathlib.Path(gt_cifs) / (out_dir.stem.split("_")[1] + ".cif")
+        
         cif_pred = next(pred_dir.glob("*.cif"))
-        cif_true = out_dir.parent.parent.parent / "data" / "ground_truth_cif" / (out_dir.stem.split("_")[1] + ".cif")
+        assert cif_pred.exists(), f"Predicted cif file not found in {cif_pred}"
+        # cif_true = pathlib.Path(gt_cifs) / (out_dir.stem.split("_")[1] + ".cif")
+        assert cif_true.exists(), f"True cif file not found in {cif_true}"
         score, total = compute_lddt(cif_pred, cif_true)
 
         # remove temp dir
@@ -740,7 +751,7 @@ def random_sampling(
         random_noise = torch.randn(noise_shape, device=device)
         model_module.custom_noise = random_noise
         out = model_module.predict_step(batch, batch_idx=0)
-        score = score_fn(out)
+        score = score_fn(out, gt_cifs=gt_cifs)
         random_scores.append(score)
         click.echo(f"Sample {i+1}: Score = {score:.4f}")
 

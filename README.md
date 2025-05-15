@@ -90,12 +90,12 @@ systemd-inhibit bash -c "
 set -e  # Exit on any error
 
 systemd-inhibit bash -c "
-  boltz-exp monomers-predict --data_dir . --num_random_samples 2 --num_neighbors 2 --num_iterations 1 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-predict --data_dir . --num_random_samples 8 --num_neighbors 2 --num_iterations 4 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-predict --data_dir . --num_random_samples 16 --num_neighbors 2 --num_iterations 8 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-predict --data_dir . --num_random_samples 32 --num_neighbors 2 --num_iterations 16 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-predict --data_dir . --num_random_samples 64 --num_neighbors 2 --num_iterations 32 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-predict --data_dir . --num_random_samples 128 --num_neighbors 2 --num_iterations 64 --verifier lddt --num_monomers 25
+  boltz-exp monomers-predict --data_dir . --num_random_samples 2 --num_neighbors 2 --num_iterations 1 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 8 --num_neighbors 2 --num_iterations 4 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 16 --num_neighbors 2 --num_iterations 8 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 32 --num_neighbors 2 --num_iterations 16 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 64 --num_neighbors 2 --num_iterations 32 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-predict --data_dir . --num_random_samples 128 --num_neighbors 2 --num_iterations 64 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/
 "
 ```
 
@@ -104,13 +104,13 @@ systemd-inhibit bash -c "
 set -e
 
 systemd-inhibit bash -c '
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 200 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 800 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 1600 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 3200 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 6400 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 12800 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 25600 --verifier lddt --num_monomers 25 &&
-  boltz-exp monomers-single-sample --data_dir . --denoising_steps 51200 --verifier lddt --num_monomers 25
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 200 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 800 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 1600 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 3200 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 6400 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 12800 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 25600 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
+  boltz-exp monomers-single-sample --data_dir . --denoising_steps 51200 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/
 '
 ```
