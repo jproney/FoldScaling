@@ -17,7 +17,6 @@ from boltz.search_algorithms import (
     random_sampling,
     zero_order_sampling,
     search_over_paths,
-    plddt_score,
 )
 
 warnings.simplefilter("ignore", PDBConstructionWarning)
@@ -77,6 +76,12 @@ def cli() -> None:
     help="The number of monomers to use for prediction.",
     default=50,
 )
+@click.option(
+    "--verifier",
+    type=str,
+    help="The score function to use for prediction.",
+    default="plddt",
+)
 def monomers_predict(
     data_dir: str,
     use_msa: bool,
@@ -86,8 +91,10 @@ def monomers_predict(
     num_neighbors: int,
     num_iterations: int,
     num_monomers: int,
+    verifier: str,
 ) -> None:
     """Make sure to run this command inside the data directory."""
+
     parent_dir = pathlib.Path(data_dir).absolute().parent.parent
     results_dir = parent_dir / "results"
     results_dir.mkdir(parents=True, exist_ok=True)
@@ -163,7 +170,7 @@ def monomers_predict(
             no_potentials=True,
             recycling_steps=recycling_steps,
             num_random_samples=num_random_samples,
-            score_fn=plddt_score,
+            verifier=verifier,
         )
 
         zero_order_sampling(
@@ -184,32 +191,8 @@ def monomers_predict(
             recycling_steps=recycling_steps,
             num_candidates=num_neighbors,
             num_iterations=num_iterations,
-            score_fn=plddt_score,
+            verifier=verifier,
         )
-
-        # search_over_paths(
-        #     data=str(fasta),
-        #     out_dir=str(sub_dir),
-        #     devices=1,
-        #     accelerator="gpu",
-        #     sampling_steps=denoising_steps,
-        #     step_scale=1.638,
-        #     output_format="mmcif",
-        #     num_workers=2,
-        #     seed=None,
-        #     use_msa_server=False,
-        #     no_potentials=True,
-        #     recycling_steps=recycling_steps,
-        #     diffusion_samples=1,
-        #     num_initial_paths=4,
-        #     path_width=5,
-        #     search_start_sigma=10.0,
-        #     backward_stepsize=0.5,
-        #     forward_stepsize=0.5,
-        #     diffusion_solver_steps=50,
-        #     confidence_fk=False,
-        #     device="cuda"
-        # )
 
         # Free memory after each FASTA file
         torch.cuda.empty_cache()
@@ -246,14 +229,28 @@ def monomers_predict(
     help="The number of denoising steps to use for prediction.",
     default=200,
 )
+@click.option(
+    "--verifier",
+    type=str,
+    help="The score function to use for prediction.",
+    default="plddt",
+)
 def monomers_single_sample(
     data_dir: str,
     use_msa: bool,
     recycling_steps: int,
     num_monomers: int,
     denoising_steps: int,
+    verifier: str,
 ) -> None:
     """Make sure to run this command inside the data directory."""
+
+    if verifier == "plddt":
+        score_fn = plddt_score
+    elif verifier == "lddt":
+        score_fn = lddt_score
+    else:
+        raise ValueError(f"Unknown verifier: {verifier}")
 
     parent_dir = pathlib.Path(data_dir).absolute().parent.parent
     results_dir = parent_dir / "results"
@@ -293,7 +290,7 @@ def monomers_single_sample(
             no_potentials=True,
             recycling_steps=recycling_steps,
             num_random_samples=1,
-            score_fn=plddt_score,
+            score_fn=score_fn,
         )
 
         torch.cuda.empty_cache()

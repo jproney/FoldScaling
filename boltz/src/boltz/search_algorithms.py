@@ -1,6 +1,7 @@
 import pathlib
 from dataclasses import asdict
 from pathlib import Path
+import shutil
 from typing import Literal, Optional
 
 import click
@@ -67,17 +68,11 @@ def generate_protein_neighbors(base_noise, threshold=0.95, num_neighbors=5):
     return torch.stack(neighbors)
 
 
-def plddt_score(out, pdb_id):
+def plddt_score(out, data: str):
     """Calculate the pLDDT score from the output."""
     plddt = out["plddt"].mean(dim=1)
-    return plddt
+    return plddt.item()
 
-
-def lddt_score(out, data: str):
-    """Calculate the LDDT score from the output."""
-    compute_lddt(cif_pred, cif_true)
-    pdb_id = pathlib.Path(data).stem.split("_")[0]
-    return lddt
 
 def zero_order_sampling(
     data: str,
@@ -103,7 +98,7 @@ def zero_order_sampling(
     num_iterations: int = 10,
     confidence_fk: bool = False,
     diffusion_samples: int = 1,
-    score_fn: Callable = plddt_score,
+    verifier: str = "plddt",
 ) -> None:
     """Run predictions with Boltz-1."""
     # If cpu, write a friendly warning
@@ -251,12 +246,51 @@ def zero_order_sampling(
     else:
         model_module.predict_args["confidence_potential"] = None
 
+    def lddt_score(out):
+        """Calculate the LDDT score from the output."""
+        pred_writer = BoltzWriter(
+            data_dir=processed.targets_dir,
+            output_dir=out_dir / "predictions",
+            output_format=output_format,
+        )
+        trainer = Trainer(
+            default_root_dir=out_dir,
+            strategy="auto",
+            callbacks=[pred_writer],
+            accelerator=accelerator,
+            devices=devices,
+            precision=32,
+        )
+        pred_writer.on_predict_batch_end(
+            trainer=trainer,
+            pl_module=model_module,
+            outputs=out,
+            batch=batch,
+            batch_idx=0,
+            dataloader_idx=0,
+        )
+        pred_dir = out_dir / "predictions" / out_dir.parent.stem
+        cif_pred = next(pred_dir.glob("*.cif"))
+        cif_true = out_dir.parent.parent.parent.parent / "data" / "ground_truth_cif" / (out_dir.parent.stem.split("_")[0] + ".cif")
+        score, total = compute_lddt(cif_pred, cif_true)
+
+        # remove temp dir
+        shutil.rmtree(out_dir / "predictions")
+        (out_dir / "predictions").mkdir(parents=True, exist_ok=True)
+        return score
+
+    if verifier == "plddt":
+        score_fn = plddt_score
+    elif verifier == "lddt":
+        score_fn = lddt_score
+    else:
+        raise ValueError(f"Unknown verifier: {verifier}. Use 'plddt' or 'lddt'.")
+
     # new code
     batch = next(iter(data_module.predict_dataloader()))
     device = model_module.device
     batch = {k: v.to(device) if torch.is_tensor(v) else v for k, v in batch.items()}
 
-    # print("hi", batch["atom_pad_mask"].shape)
     atom_mask = batch["atom_pad_mask"]
     noise_shape = (*atom_mask.shape, 3)
 
@@ -282,10 +316,9 @@ def zero_order_sampling(
             # Set custom noise
             model_module.custom_noise = candidate_noise
             out = model_module.predict_step(batch, batch_idx=0)
-            score = score_fn(out, data)
-            score = score.item() if isinstance(score, torch.Tensor) else score
+            score = score_fn(out)
 
-            inner_iter.set_postfix(**{score_fn.__name__: f"{score:.3f}"}, refresh=True)
+            inner_iter.set_postfix(**{verifier: f"{score:.3f}"}, refresh=True)
 
             # Find best candidate this iteration
             if score > top_score:
@@ -546,7 +579,7 @@ def random_sampling(
     recycling_steps: int = 3,
     confidence_fk: bool = False,
     diffusion_samples: int = 1,
-    score_fn: Callable = plddt_score,
+    verifier: str = "plddt",
 ) -> None:
     """Run random sampling predictions with Boltz-1."""
     torch.set_grad_enabled(False)
@@ -663,24 +696,64 @@ def random_sampling(
     random_scores = []
     best_score, best_out = -float("inf"), None
 
+    def lddt_score(out):
+        """Calculate the LDDT score from the output."""
+        pred_writer = BoltzWriter(
+            data_dir=processed.targets_dir,
+            output_dir=out_dir / "predictions",
+            output_format=output_format,
+        )
+        trainer = Trainer(
+            default_root_dir=out_dir,
+            strategy="auto",
+            callbacks=[pred_writer],
+            accelerator=accelerator,
+            devices=devices,
+            precision=32,
+        )
+        pred_writer.on_predict_batch_end(
+            trainer=trainer,
+            pl_module=model_module,
+            outputs=out,
+            batch=batch,
+            batch_idx=0,
+            dataloader_idx=0,
+        )
+        pred_dir = out_dir / "predictions" / out_dir.parent.stem
+        cif_pred = next(pred_dir.glob("*.cif"))
+        cif_true = out_dir.parent.parent.parent.parent / "data" / "ground_truth_cif" / (out_dir.parent.stem.split("_")[0] + ".cif")
+        score, total = compute_lddt(cif_pred, cif_true)
+
+        # remove temp dir
+        shutil.rmtree(out_dir / "predictions")
+        (out_dir / "predictions").mkdir(parents=True, exist_ok=True)
+        return score
+
+    if verifier == "plddt":
+        score_fn = plddt_score
+    elif verifier == "lddt":
+        score_fn = lddt_score
+    else:
+        raise ValueError(f"Unknown verifier: {verifier}. Use 'plddt' or 'lddt'.")
+
     for i in tqdm(range(num_random_samples), desc="Random Sampling"):
         random_noise = torch.randn(noise_shape, device=device)
         model_module.custom_noise = random_noise
         out = model_module.predict_step(batch, batch_idx=0)
         score = score_fn(out)
         random_scores.append(score)
-        click.echo(f"Sample {i+1}: Score = {score.item():.4f}")
+        click.echo(f"Sample {i+1}: Score = {score:.4f}")
 
         if score > best_score:
             best_score = score
             best_out = out
 
     click.echo("\nRandom Sampling Summary:")
-    click.echo(f"Best Score: {best_score.item():.4f}")
-    click.echo(f"Worst Score: {min(random_scores).item():.4f}")
-    click.echo(f"Average Score: {np.mean([s.item() for s in random_scores]):.4f}")
+    click.echo(f"Best Score: {best_score:.4f}")
+    click.echo(f"Worst Score: {min(random_scores):.4f}")
+    click.echo(f"Average Score: {np.mean(random_scores):.4f}")
     click.echo(
-        f"Difference (Best - Worst): {(best_score - min(random_scores)).item():.4f}"
+        f"Difference (Best - Worst): {(best_score - min(random_scores)):.4f}"
     )
 
     pred_writer = BoltzWriter(
