@@ -82,7 +82,7 @@ systemd-inhibit bash -c "
   boltz-exp monomers-predict --data_dir . --num_random_samples 32 --num_neighbors 2 --num_iterations 16 --verifier plddt --num_monomers 25 &&
   boltz-exp monomers-predict --data_dir . --num_random_samples 64 --num_neighbors 2 --num_iterations 32 --verifier plddt --num_monomers 25 &&
   boltz-exp monomers-predict --data_dir . --num_random_samples 128 --num_neighbors 2 --num_iterations 64 --verifier plddt --num_monomers 25 &&
-  boltz-exp monomers-predict --data_dir . --num_random_samples 256 --num_neighbors 2 --num_iterations 128 --verifier plddt --num_monomers 25
+  boltz-exp monomers-predict --data_dir . --num_random_samples 256 --num_neighbors 2 --num_iterations 128 --verifier plddt --num_monomers 25 &&
   boltz-exp monomers-predict --data_dir . --num_random_samples 512 --num_neighbors 2 --num_iterations 256 --verifier plddt --num_monomers 25
 "
 ```
@@ -98,7 +98,7 @@ systemd-inhibit bash -c "
   boltz-exp monomers-predict --data_dir . --num_random_samples 32 --num_neighbors 2 --num_iterations 16 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
   boltz-exp monomers-predict --data_dir . --num_random_samples 64 --num_neighbors 2 --num_iterations 32 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
   boltz-exp monomers-predict --data_dir . --num_random_samples 128 --num_neighbors 2 --num_iterations 64 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
-  boltz-exp monomers-predict --data_dir . --num_random_samples 256 --num_neighbors 2 --num_iterations 128 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/
+  boltz-exp monomers-predict --data_dir . --num_random_samples 256 --num_neighbors 2 --num_iterations 128 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/ &&
   boltz-exp monomers-predict --data_dir . --num_random_samples 512 --num_neighbors 2 --num_iterations 256 --verifier lddt --num_monomers 25 --gt_cifs ../ground_truth_cif/
 "
 ```
