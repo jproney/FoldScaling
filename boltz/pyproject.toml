@@ -36,6 +36,7 @@ dependencies = [
 boltz = "boltz.main:cli"
 boltz-exp = "boltz.experiments:cli"
 boltz-utils = "boltz.utils:cli"
+boltz-results = "boltz.results:cli"
 
 [project.optional-dependencies]
 lint = ["ruff"]
