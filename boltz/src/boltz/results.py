@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 from boltz.utils import compute_lddt
+import seaborn as sns
 
 warnings.simplefilter("ignore", PDBConstructionWarning)
 
@@ -64,6 +65,8 @@ def plot_nfe_vs_plddt(results, num_decimals, num_monomers, no_show_single):
     def gather_search_data(search_root):
         random_data = []
         zos_data = []
+        scores_by_nfe_random = {}
+        scores_by_nfe_zos = {}
 
         for exp in sorted(search_root.glob("boltz_monomers*")):
             try:
@@ -105,13 +108,17 @@ def plot_nfe_vs_plddt(results, num_decimals, num_monomers, no_show_single):
                 random_data.append(
                     (nfe_random, np.mean(plddts_random), np.std(plddts_random))
                 )
+                scores_by_nfe_random.setdefault(nfe_random, []).extend(plddts_random)
+
             if plddts_zos:
                 zos_data.append((nfe_zos, np.mean(plddts_zos), np.std(plddts_zos)))
+                scores_by_nfe_zos.setdefault(nfe_zos, []).extend(plddts_zos)
 
-        return random_data, zos_data
+        return random_data, zos_data, scores_by_nfe_random, scores_by_nfe_zos
 
     def gather_denoising_data(denoising_root):
         data = []
+        scores_by_nfe_single = {}
 
         for exp in sorted(denoising_root.glob("boltz_monomers*")):
             match = re.search(r"denoising_(\d+)", exp.name)
@@ -150,12 +157,13 @@ def plot_nfe_vs_plddt(results, num_decimals, num_monomers, no_show_single):
 
             if plddts:
                 data.append((nfe, np.mean(plddts), np.std(plddts)))
+                scores_by_nfe_single.setdefault(nfe, []).extend(plddts)
 
-        return data
+        return data, scores_by_nfe_single
 
     # Gather data
-    random_data, zos_data = gather_search_data(search_results)
-    single_sample_data = gather_denoising_data(denoising_results)
+    random_data, zos_data, scores_by_nfe_random, scores_by_nfe_zos = gather_search_data(search_results)
+    single_sample_data, scores_by_nfe_single = gather_denoising_data(denoising_results)
 
     # Sort
     random_data.sort()
@@ -203,6 +211,47 @@ def plot_nfe_vs_plddt(results, num_decimals, num_monomers, no_show_single):
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+    # --- pLDDT Distributions by NFE ---
+    def flatten_scores_by_nfe(score_dict, method_label):
+        """
+        Converts {nfe: [scores]} to list of dicts: [{"score": ..., "nfe": ..., "method": ...}, ...]
+        """
+        rows = []
+        for nfe, scores in score_dict.items():
+            rows.extend(
+                {"score": s, "nfe": nfe, "method": method_label}
+                for s in scores
+                if not math.isnan(s)
+            )
+        return rows
+
+    # Combine all data
+    distribution_data = (
+        flatten_scores_by_nfe(scores_by_nfe_random, "Random Sampling")
+        + flatten_scores_by_nfe(scores_by_nfe_zos, "Zero-Order Search")
+        + flatten_scores_by_nfe(scores_by_nfe_single, "Single Sample")
+    )
+    df_dist = pd.DataFrame(distribution_data)
+
+    for method in df_dist["method"].unique():
+        plt.figure()
+        subset = df_dist[df_dist["method"] == method]
+        sns.kdeplot(
+            data=subset,
+            x="score",
+            hue="nfe",
+            fill=False,
+            common_norm=False,
+            alpha=0.5,
+            palette="tab10",
+        )
+        plt.title(f"pLDDT Distribution per NFE - {method}")
+        plt.xlabel("pLDDT Score")
+        plt.ylabel("Density")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
 
 
 @cli.command()
@@ -258,6 +307,8 @@ def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str):
     def gather_search_data(search_root):
         random_data = []
         zos_data = []
+        scores_by_nfe_random = {}
+        scores_by_nfe_zos = {}
 
         for exp in sorted(search_root.glob("boltz_monomers*")):
             try:
@@ -295,13 +346,16 @@ def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str):
                 random_data.append(
                     (nfe_random, np.mean(lddts_random), np.std(lddts_random))
                 )
+                scores_by_nfe_random.setdefault(nfe_random, []).extend(lddts_random)
             if lddts_zos:
                 zos_data.append((nfe_zos, np.mean(lddts_zos), np.std(lddts_zos)))
+                scores_by_nfe_zos.setdefault(nfe_zos, []).extend(lddts_zos)
 
-        return random_data, zos_data
+        return random_data, zos_data, scores_by_nfe_random, scores_by_nfe_zos
 
     def gather_denoising_data(denoising_root):
         data = []
+        scores_by_nfe_single = {}
 
         for exp in sorted(denoising_root.glob("boltz_monomers*")):
             match = re.search(r"denoising_(\d+)", exp.name)
@@ -334,12 +388,13 @@ def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str):
 
             if lddts:
                 data.append((nfe, np.mean(lddts), np.std(lddts)))
+                scores_by_nfe_single.setdefault(nfe, []).extend(lddts)
 
-        return data
+        return data, scores_by_nfe_single
 
     # Gather data
-    random_data, zos_data = gather_search_data(search_results)
-    single_sample_data = gather_denoising_data(denoising_results)
+    random_data, zos_data, scores_by_nfe_random, scores_by_nfe_zos = gather_search_data(search_results)
+    single_sample_data, scores_by_nfe_single = gather_denoising_data(denoising_results)
 
     # Sort
     random_data.sort()
@@ -391,6 +446,46 @@ def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str):
     plt.legend()
     plt.tight_layout()
     plt.show()
+
+    # --- LDDT Distributions by NFE ---
+    def flatten_scores_by_nfe(score_dict, method_label):
+        """
+        Converts {nfe: [scores]} to list of dicts: [{"score": ..., "nfe": ..., "method": ...}, ...]
+        """
+        rows = []
+        for nfe, scores in score_dict.items():
+            rows.extend(
+                {"score": s, "nfe": nfe, "method": method_label}
+                for s in scores
+                if not math.isnan(s)
+            )
+        return rows
+
+    # Combine all data
+    distribution_data = (
+        flatten_scores_by_nfe(scores_by_nfe_random, "Random Sampling")
+        + flatten_scores_by_nfe(scores_by_nfe_zos, "Zero-Order Search")
+        + flatten_scores_by_nfe(scores_by_nfe_single, "Single Sample")
+    )
+    df_dist = pd.DataFrame(distribution_data)
+
+    for method in df_dist["method"].unique():
+        plt.figure()
+        subset = df_dist[df_dist["method"] == method]
+        sns.kdeplot(
+            x=subset["score"].to_numpy(),  # <- workaround for pandas/seaborn bug
+            hue=subset["nfe"],
+            fill=False,
+            common_norm=False,
+            alpha=0.5,
+            palette="tab10",
+        )
+        plt.title(f"LDDT Distribution per NFE - {method}")
+        plt.xlabel("LDDT Score")
+        plt.ylabel("Density")
+        plt.grid(True)
+        plt.tight_layout()
+        plt.show()
 
 
 if __name__ == "__main__":
