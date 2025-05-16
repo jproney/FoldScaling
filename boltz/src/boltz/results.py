@@ -1,4 +1,5 @@
 import json
+import math
 import pathlib
 import re
 import warnings
@@ -359,10 +360,14 @@ def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str):
         orient="index",
     )
 
-    # Format as "mean ± std" strings (preserve decimals)
     df_formatted = df.map(
-        lambda x: f"{x[0]:.{num_decimals}f} ± {x[1]:.{num_decimals}f}"
+    lambda x: f"{x[0]:.{num_decimals}f} ± {x[1]:.{num_decimals}f}"
+    if isinstance(x, tuple) and all(isinstance(v, (int, float)) and not math.isnan(v) for v in x)
+    else "-"
     )
+    # df_formatted = df.map(
+    #     lambda x: f"{x[0]:.{num_decimals}f} ± {x[1]:.{num_decimals}f}"
+    # )
 
     # Print
     print(df_formatted.to_string())
