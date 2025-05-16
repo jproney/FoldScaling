@@ -276,7 +276,12 @@ def plot_nfe_vs_plddt(results, num_decimals, num_monomers, no_show_single):
     type=click.Path(exists=True),
     help="The path to the directory containing the ground truth files.",
 )
-def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str):
+@click.option(
+    "--no_show_single",
+    is_flag=True,
+    default=False,
+)
+def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str, no_show_single):
     """
     Plot average LDDT vs NFE for:
     - Random Sampling
@@ -435,7 +440,7 @@ def plot_nfe_vs_lddt(results, num_decimals: int, num_monomers: int, gt: str):
     if zos_data:
         x_z, y_z, _ = zip(*zos_data)
         plt.plot(x_z, y_z, marker="o", label="Zero-Order Search")
-    if single_sample_data:
+    if single_sample_data and not no_show_single:
         x_s, y_s, _ = zip(*single_sample_data)
         plt.plot(x_s, y_s, marker="o", label="Single Sample (Denoising Sweep)")
 
