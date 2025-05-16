@@ -1,0 +1,118 @@
+  0%|          | 0/150 [00:00<?, ?it/s]  1%|          | 1/150 [00:00<00:16,  8.97it/s]  2%|▏         | 3/150 [00:00<00:12, 11.94it/s]  3%|▎         | 5/150 [00:00<00:14, 10.30it/s]  5%|▍         | 7/150 [00:00<00:12, 11.48it/s]  6%|▌         | 9/150 [00:00<00:11, 11.78it/s]  7%|▋         | 11/150 [00:00<00:11, 11.68it/s]  9%|▊         | 13/150 [00:01<00:10, 12.80it/s] 10%|█         | 15/150 [00:01<00:10, 13.37it/s] 11%|█▏        | 17/150 [00:01<00:10, 12.48it/s] 13%|█▎        | 19/150 [00:01<00:09, 13.17it/s] 14%|█▍        | 21/150 [00:01<00:09, 13.47it/s] 15%|█▌        | 23/150 [00:01<00:09, 13.04it/s] 17%|█▋        | 25/150 [00:02<00:09, 12.88it/s] 18%|█▊        | 27/150 [00:02<00:09, 12.77it/s] 19%|█▉        | 29/150 [00:02<00:09, 12.35it/s] 21%|██        | 31/150 [00:02<00:10, 11.09it/s] 22%|██▏       | 33/150 [00:02<00:11, 10.51it/s] 23%|██▎       | 35/150 [00:02<00:10, 11.06it/s] 25%|██▍       | 37/150 [00:03<00:09, 11.81it/s] 26%|██▌       | 39/150 [00:03<00:09, 11.21it/s] 27%|██▋       | 41/150 [00:03<00:09, 10.99it/s] 29%|██▊       | 43/150 [00:03<00:09, 11.50it/s] 30%|███       | 45/150 [00:03<00:09, 11.46it/s] 31%|███▏      | 47/150 [00:03<00:09, 11.30it/s] 33%|███▎      | 49/150 [00:04<00:09, 10.89it/s] 34%|███▍      | 51/150 [00:04<00:08, 11.67it/s] 35%|███▌      | 53/150 [00:04<00:07, 12.17it/s] 37%|███▋      | 55/150 [00:04<00:08, 10.69it/s] 38%|███▊      | 57/150 [00:04<00:08, 11.32it/s] 39%|███▉      | 59/150 [00:05<00:07, 11.45it/s] 41%|████      | 61/150 [00:05<00:08, 10.25it/s] 42%|████▏     | 63/150 [00:05<00:07, 11.05it/s] 43%|████▎     | 65/150 [00:05<00:07, 11.63it/s] 45%|████▍     | 67/150 [00:05<00:07, 11.03it/s] 46%|████▌     | 69/150 [00:05<00:07, 11.28it/s] 47%|████▋     | 71/150 [00:06<00:07, 10.75it/s] 49%|████▊     | 73/150 [00:06<00:07, 10.10it/s] 50%|█████     | 75/150 [00:06<00:06, 11.09it/s] 51%|█████▏    | 77/150 [00:06<00:05, 12.31it/s] 53%|█████▎    | 79/150 [00:06<00:05, 12.80it/s] 54%|█████▍    | 81/150 [00:06<00:05, 12.15it/s] 55%|█████▌    | 83/150 [00:07<00:05, 12.56it/s] 57%|█████▋    | 85/150 [00:07<00:04, 13.06it/s] 58%|█████▊    | 87/150 [00:07<00:04, 13.30it/s] 59%|█████▉    | 89/150 [00:07<00:04, 12.53it/s] 61%|██████    | 91/150 [00:07<00:04, 11.86it/s] 62%|██████▏   | 93/150 [00:07<00:04, 12.05it/s] 63%|██████▎   | 95/150 [00:08<00:04, 12.34it/s] 65%|██████▍   | 97/150 [00:08<00:04, 12.72it/s] 66%|██████▌   | 99/150 [00:08<00:04, 11.67it/s] 67%|██████▋   | 101/150 [00:08<00:04, 11.95it/s] 69%|██████▊   | 103/150 [00:08<00:04, 11.64it/s] 70%|███████   | 105/150 [00:08<00:03, 12.17it/s] 71%|███████▏  | 107/150 [00:09<00:03, 12.54it/s] 73%|███████▎  | 109/150 [00:09<00:03, 11.61it/s] 74%|███████▍  | 111/150 [00:09<00:03, 12.04it/s] 75%|███████▌  | 113/150 [00:09<00:02, 12.48it/s] 77%|███████▋  | 115/150 [00:09<00:02, 13.00it/s] 78%|███████▊  | 117/150 [00:09<00:02, 13.18it/s] 79%|███████▉  | 119/150 [00:10<00:02, 12.74it/s] 81%|████████  | 121/150 [00:10<00:02, 12.92it/s] 82%|████████▏ | 123/150 [00:10<00:02, 12.15it/s] 83%|████████▎ | 125/150 [00:10<00:02, 11.93it/s] 85%|████████▍ | 127/150 [00:10<00:01, 11.94it/s] 86%|████████▌ | 129/150 [00:10<00:01, 11.74it/s] 87%|████████▋ | 131/150 [00:11<00:01, 11.44it/s] 89%|████████▊ | 133/150 [00:11<00:01, 11.87it/s] 90%|█████████ | 135/150 [00:11<00:01, 12.36it/s] 91%|█████████▏| 137/150 [00:11<00:01, 12.63it/s] 93%|█████████▎| 139/150 [00:11<00:00, 11.42it/s] 94%|█████████▍| 141/150 [00:11<00:00, 11.89it/s] 95%|█████████▌| 143/150 [00:12<00:00, 12.37it/s] 97%|█████████▋| 145/150 [00:12<00:00, 12.29it/s] 98%|█████████▊| 147/150 [00:12<00:00, 11.01it/s] 99%|█████████▉| 149/150 [00:12<00:00, 11.18it/s]100%|██████████| 150/150 [00:12<00:00, 11.86it/s]
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/logger_connector/logger_connector.py:75: Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `pytorch_lightning` package, due to potential conflicts with other packages in the ML ecosystem. For this reason, `logger=True` will use `CSVLogger` as the default logger, unless the `tensorboard` or `tensorboardX` packages are found. Please `pip install lightning[extra]` or one of them to enable TensorBoard support by default
+/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/utilities/parsing.py:44: Attribute 'predict_args' removed from hparams because it cannot be pickled. You can suppress this warning by setting `self.save_hyperparameters(ignore=['predict_args'])`.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [GPU-29d5d050-b350-2001-863b-a5b61589f0ef]
+SLURM auto-requeueing enabled. Setting signal handlers.
+Traceback (most recent call last):
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/main.py", line 1495, in <module>
+    cli()
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/click/core.py", line 1157, in __call__
+    return self.main(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/click/core.py", line 1078, in main
+    rv = self.invoke(ctx)
+         ^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/click/core.py", line 1688, in invoke
+    return _process_result(sub_ctx.command.invoke(sub_ctx))
+                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/click/core.py", line 1434, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/click/core.py", line 783, in invoke
+    return __callback(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/main.py", line 910, in predict
+    predictions = trainer.predict(
+                  ^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py", line 858, in predict
+    return call._call_and_handle_interrupt(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/call.py", line 47, in _call_and_handle_interrupt
+    return trainer_fn(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py", line 897, in _predict_impl
+    results = self._run(model, ckpt_path=ckpt_path)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py", line 981, in _run
+    results = self._run_stage()
+              ^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/trainer.py", line 1020, in _run_stage
+    return self.predict_loop.run()
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/loops/utilities.py", line 178, in _decorator
+    return loop_run(self, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/loops/prediction_loop.py", line 124, in run
+    self._predict_step(batch, batch_idx, dataloader_idx, dataloader_iter)
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/loops/prediction_loop.py", line 253, in _predict_step
+    predictions = call._call_strategy_hook(trainer, "predict_step", *step_args)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/call.py", line 319, in _call_strategy_hook
+    output = fn(*args, **kwargs)
+             ^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/strategies/strategy.py", line 437, in predict_step
+    return self.lightning_module.predict_step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/model.py", line 1152, in predict_step
+    out = self(
+          ^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/model.py", line 362, in forward
+    self.structure_module.sample(
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/modules/diffusion.py", line 557, in sample
+    component_energy = potential.compute(
+                       ^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/potentials/potentials.py", line 36, in compute
+    value = self.compute_variable(coords, index, compute_gradient=False)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/main.py", line 122, in compute_variable
+    conf_out = self.parameters['model'].confidence_module(
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/modules/confidence.py", line 300, in forward
+    z = z + self.msa_module(z, s_inputs, feats)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/modules/trunk.py", line 270, in forward
+    z, m = self.layers[i](
+           ^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/fairscale/nn/checkpoint/checkpoint_activations.py", line 171, in _checkpointed_forward
+    return original_forward(module, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/modules/trunk.py", line 387, in forward
+    z = z + self.outer_product_mean(m, msa_mask, chunk_size_outer_product)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1751, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/torch/nn/modules/module.py", line 1762, in _call_impl
+    return forward_call(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/gridsan/jroney/solab/af3/FoldScaling/boltz/src/boltz/model/layers/outer_product_mean.py", line 94, in forward
+    z = z / num_mask
+        ~~^~~~~~~~~~
+torch.OutOfMemoryError: CUDA out of memory. Tried to allocate 16.17 GiB. GPU 0 has a total capacity of 31.73 GiB of which 8.10 GiB is free. Including non-PyTorch memory, this process has 23.63 GiB memory in use. Of the allocated memory 23.16 GiB is allocated by PyTorch, and 74.41 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

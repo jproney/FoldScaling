@@ -1,0 +1,8 @@
+GPU available: True (cuda), used: True
+TPU available: False, using: 0 TPU cores
+HPU available: False, using: 0 HPUs
+/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/trainer/connectors/logger_connector/logger_connector.py:75: Starting from v1.9.0, `tensorboardX` has been removed as a dependency of the `pytorch_lightning` package, due to potential conflicts with other packages in the ML ecosystem. For this reason, `logger=True` will use `CSVLogger` as the default logger, unless the `tensorboard` or `tensorboardX` packages are found. Please `pip install lightning[extra]` or one of them to enable TensorBoard support by default
+/home/gridsan/jroney/.conda/envs/boltz1/lib/python3.11/site-packages/pytorch_lightning/utilities/parsing.py:44: Attribute 'predict_args' removed from hparams because it cannot be pickled. You can suppress this warning by setting `self.save_hyperparameters(ignore=['predict_args'])`.
+LOCAL_RANK: 0 - CUDA_VISIBLE_DEVICES: [GPU-29d5d050-b350-2001-863b-a5b61589f0ef]
+SLURM auto-requeueing enabled. Setting signal handlers.
+slurmstepd-d-14-6-1: error: *** JOB 694221 ON d-14-6-1 CANCELLED AT 2025-05-11T16:31:39 ***
